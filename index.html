@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Scale</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  :root{
+    --ground:#06080c;
+    --ground-2:#080b11;
+    --surface:rgba(20,26,36,0.55);
+    --line:rgba(255,255,255,0.10);
+    --line-soft:rgba(255,255,255,0.055);
+    --ink:#eef2f8;
+    --muted:#9aa4b5;
+    --faint:#586072;
+    --accent:#ff4d6d;            /* recolored per scene by JS */
+    --accent-ink:#ffd9e0;
+    --shadow:0 24px 60px -20px rgba(0,0,0,0.7);
+    --sys: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "Helvetica Neue", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family:var(--sys);
+    background:var(--ground);
+    color:var(--ink);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    position:fixed; inset:0;
+  }
+  a{ color:inherit; }
+
+  #stage{ position:fixed; inset:0; overflow:hidden; }
+
+  canvas#bio{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  /* vignette + grain on top of the canvas */
+  .vignette{
+    position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 42%, transparent 40%, rgba(0,0,0,0.35) 82%, rgba(0,0,0,0.72) 100%);
+    z-index:2;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:absolute; top:0; left:0; right:0; z-index:6;
+    display:flex; align-items:baseline; gap:14px;
+    padding:26px clamp(20px,4vw,52px);
+    pointer-events:none;
+  }
+  .wordmark{
+    font-weight:700; font-size:19px; letter-spacing:.34em;
+    padding-left:.34em;
+  }
+  .wordmark .dot{ color:var(--accent); transition:color .6s ease; }
+  .tagline{
+    font-family:var(--mono); font-size:11px; letter-spacing:.02em;
+    color:var(--muted);
+  }
+  .tagline b{ color:var(--ink); font-weight:500; }
+
+  /* ---------- depth rail ---------- */
+  .rail{
+    position:absolute; top:50%; right:clamp(16px,3.2vw,44px); transform:translateY(-50%);
+    z-index:6; display:flex; flex-direction:column; gap:0;
+    padding:4px 0;
+  }
+  .rail button{
+    all:unset; cursor:pointer; position:relative;
+    display:grid; grid-template-columns:auto 12px; align-items:center; gap:14px;
+    padding:11px 4px 11px 0; justify-items:end;
+    color:var(--faint); transition:color .35s ease;
+  }
+  .rail button:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+  .rail .r-label{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-align:right;
+    opacity:0; transform:translateX(6px); transition:opacity .35s ease, transform .35s ease;
+    white-space:nowrap;
+  }
+  .rail .r-mag{ display:block; font-size:9px; color:var(--faint); }
+  .rail .r-node{
+    width:11px; height:11px; border-radius:50%;
+    border:1.5px solid var(--faint); background:transparent;
+    transition:all .35s ease; position:relative;
+  }
+  .rail button:hover .r-label{ opacity:.8; transform:none; color:var(--muted); }
+  .rail button[aria-current="true"]{ color:var(--ink); }
+  .rail button[aria-current="true"] .r-label{ opacity:1; transform:none; color:var(--ink); }
+  .rail button[aria-current="true"] .r-node{
+    border-color:var(--accent); background:var(--accent);
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 18px var(--accent);
+  }
+  .rail::before{
+    content:""; position:absolute; right:9px; top:14px; bottom:14px; width:1.5px;
+    background:linear-gradient(var(--line-soft), var(--line-soft));
+    z-index:-1;
+  }
+
+  /* ---------- scene readout (lower left) ---------- */
+  .readout{
+    position:absolute; left:clamp(20px,4vw,52px); bottom:clamp(26px,5vh,54px);
+    z-index:6; max-width:min(42ch,74vw);
+    pointer-events:none;
+  }
+  .readout .mag{
+    font-family:var(--mono); font-size:12px; letter-spacing:.14em;
+    color:var(--accent); transition:color .6s ease; margin-bottom:14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .readout .mag .idx{ color:var(--faint); }
+  .readout .mag .bar{ flex:0 0 34px; height:1px; background:currentColor; opacity:.5; }
+  .readout h1{
+    font-size:clamp(30px,5.4vw,58px); font-weight:700; line-height:1.0;
+    letter-spacing:-0.028em; text-wrap:balance; margin-bottom:14px;
+  }
+  .readout p{
+    font-size:clamp(14px,1.55vw,17px); line-height:1.5; color:var(--muted);
+    font-weight:400; text-wrap:pretty; max-width:38ch;
+  }
+  .readout .fade{ transition:opacity .5s ease, transform .5s ease; }
+
+  /* ---------- controls (lower right / bottom) ---------- */
+  .controls{
+    position:absolute; right:clamp(20px,4vw,52px); bottom:clamp(26px,5vh,54px);
+    z-index:6; display:flex; flex-direction:column; align-items:flex-end; gap:14px;
+    max-width:min(40ch,70vw);
+  }
+  .panel{
+    pointer-events:auto;
+    background:var(--surface); backdrop-filter:blur(18px) saturate(1.3);
+    -webkit-backdrop-filter:blur(18px) saturate(1.3);
+    border:1px solid var(--line); border-radius:18px;
+    padding:16px 18px; box-shadow:var(--shadow);
+    min-width:240px;
+  }
+  .panel .p-title{
+    font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--faint); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel .p-title .live{ color:var(--accent); transition:color .6s ease; display:flex; align-items:center; gap:6px; }
+  .panel .p-title .live .pip{ width:6px; height:6px; border-radius:50%; background:currentColor; box-shadow:0 0 8px currentColor; }
+
+  /* bpm stepper */
+  .bpm-row{ display:flex; align-items:center; gap:14px; }
+  .bpm-big{ font-family:var(--mono); font-weight:700; font-size:38px; line-height:1; font-variant-numeric:tabular-nums; min-width:2.6ch; }
+  .bpm-big small{ font-size:13px; font-weight:400; color:var(--muted); margin-left:6px; letter-spacing:.04em; }
+  .step{ display:flex; gap:8px; margin-left:auto; }
+  .step button, .ghost-btn{
+    all:unset; cursor:pointer; width:38px; height:38px; border-radius:12px;
+    display:grid; place-items:center; font-size:20px; font-weight:500;
+    background:rgba(255,255,255,0.06); border:1px solid var(--line);
+    color:var(--ink); transition:background .2s ease, transform .1s ease, border-color .2s;
+  }
+  .ghost-btn{ width:auto; padding:0 16px; height:38px; font-size:13px; font-weight:500; gap:8px; }
+  .step button:hover, .ghost-btn:hover{ background:color-mix(in srgb,var(--accent) 26%, rgba(255,255,255,0.06)); border-color:var(--accent); }
+  .step button:active, .ghost-btn:active{ transform:scale(.94); }
+  .step button:focus-visible, .ghost-btn:focus-visible, .slider:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .hint{ font-size:12px; color:var(--faint); line-height:1.4; }
+  .hint b{ color:var(--muted); font-weight:500; }
+
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{
+    all:unset; cursor:pointer; font-family:var(--mono); font-size:11px; letter-spacing:.02em;
+    padding:7px 11px; border-radius:999px; border:1px solid var(--line);
+    background:rgba(255,255,255,0.04); color:var(--muted); transition:all .2s ease;
+  }
+  .chip[aria-pressed="true"]{ background:var(--accent); color:#0a0a0a; border-color:var(--accent); font-weight:500; }
+  .chip:hover{ border-color:var(--accent); color:var(--ink); }
+  .chip:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .readmini{ font-family:var(--mono); font-size:12px; color:var(--muted); line-height:1.5; }
+  .readmini .v{ color:var(--ink); }
+
+  .slider{ -webkit-appearance:none; appearance:none; width:100%; height:3px; border-radius:3px;
+    background:var(--line); outline:none; margin-top:4px; }
+  .slider::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--accent); cursor:pointer; box-shadow:0 0 12px var(--accent); }
+  .slider::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; border:none;
+    background:var(--accent); cursor:pointer; box-shadow:0 0 12px var(--accent); }
+
+  /* nav arrows bottom center */
+  .navpager{
+    position:absolute; left:50%; bottom:clamp(20px,4vh,40px); transform:translateX(-50%);
+    z-index:6; display:flex; align-items:center; gap:6px;
+    background:var(--surface); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--line); border-radius:999px; padding:6px;
+    box-shadow:var(--shadow);
+  }
+  .navpager button{
+    all:unset; cursor:pointer; width:40px; height:40px; border-radius:50%;
+    display:grid; place-items:center; color:var(--ink); transition:background .2s ease;
+  }
+  .navpager button:hover:not(:disabled){ background:rgba(255,255,255,0.08); }
+  .navpager button:disabled{ color:var(--faint); cursor:default; }
+  .navpager button:focus-visible{ outline:2px solid var(--accent); outline-offset:-4px; }
+  .navpager .depth{
+    font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--muted);
+    padding:0 8px; font-variant-numeric:tabular-nums;
+  }
+  .navpager svg{ width:18px; height:18px; }
+
+  /* ---------- intro overlay ---------- */
+  .intro{
+    position:absolute; inset:0; z-index:20;
+    display:grid; place-items:center; text-align:center;
+    background:
+      radial-gradient(60% 60% at 50% 40%, rgba(255,77,109,0.10), transparent 70%),
+      var(--ground);
+    transition:opacity .9s ease, visibility .9s;
+    padding:24px;
+  }
+  .intro.gone{ opacity:0; visibility:hidden; pointer-events:none; }
+  .intro-inner{ max-width:640px; }
+  .intro .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.32em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:26px;
+  }
+  .intro h2{
+    font-size:clamp(64px,15vw,150px); font-weight:700; letter-spacing:-.04em; line-height:.9;
+    margin-bottom:26px;
+    background:linear-gradient(180deg,#ffffff, #b9c2d4 78%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .intro .lede{
+    font-size:clamp(16px,2.1vw,20px); line-height:1.55; color:var(--muted);
+    max-width:34ch; margin:0 auto 38px; text-wrap:balance;
+  }
+  .intro .lede b{ color:var(--ink); font-weight:500; }
+  .begin{
+    all:unset; cursor:pointer; display:inline-flex; align-items:center; gap:12px;
+    font-size:15px; font-weight:500; letter-spacing:.01em;
+    padding:15px 28px; border-radius:999px;
+    background:var(--ink); color:#07090d;
+    transition:transform .18s ease, box-shadow .25s ease;
+    box-shadow:0 10px 40px -12px rgba(255,255,255,0.35);
+  }
+  .begin:hover{ transform:translateY(-2px); box-shadow:0 16px 44px -12px rgba(255,255,255,0.5); }
+  .begin:active{ transform:translateY(0) scale(.98); }
+  .begin:focus-visible{ outline:2px solid var(--accent); outline-offset:4px; }
+  .begin .arw{ font-size:18px; transition:transform .2s ease; }
+  .begin:hover .arw{ transform:translateY(3px); }
+  .intro .credits{ margin-top:44px; font-family:var(--mono); font-size:10.5px; color:var(--faint); letter-spacing:.05em; }
+  .intro .madeon{
+    margin-top:18px; display:inline-flex; align-items:center; gap:11px;
+    font-size:12px; font-weight:500; letter-spacing:.01em; color:var(--muted);
+  }
+  .intro .madeon::before, .intro .madeon::after{ content:""; width:24px; height:1px; background:var(--line); }
+
+  /* label popups on canvas (cell / dna hover) */
+  .floatlabel{
+    position:absolute; z-index:5; pointer-events:none;
+    font-family:var(--mono); font-size:11px; letter-spacing:.02em;
+    padding:6px 10px; border-radius:9px; white-space:nowrap;
+    background:rgba(8,11,17,0.82); border:1px solid var(--line); color:var(--ink);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    transform:translate(-50%,-140%); opacity:0; transition:opacity .18s ease;
+    box-shadow:var(--shadow);
+  }
+  .floatlabel.show{ opacity:1; }
+  .floatlabel .sub{ color:var(--muted); }
+
+  .fade-out{ opacity:0 !important; transform:translateY(8px); }
+
+  @media (max-width:760px){
+    .rail{ right:8px; }
+    .rail .r-label{ display:none; }
+    .controls{ left:clamp(16px,4vw,52px); align-items:stretch; }
+    .panel{ min-width:0; width:100%; }
+    .readout{ bottom:auto; top:84px; }
+    .readout p{ display:none; }
+    .navpager{ bottom:14px; }
+    .tagline{ display:none; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .begin, .navpager button, .step button{ transition:none; }
+  }
+
+  /* ---------- guided tour ---------- */
+  .tourbar{ position:absolute; top:0; left:0; right:0; height:3px; z-index:9; pointer-events:none; transition:opacity .4s ease; }
+  .tourbar.hidden{ opacity:0; }
+  .tourbar-fill{ height:100%; width:0; background:var(--accent); box-shadow:0 0 12px var(--accent); }
+  .tourpill{
+    position:absolute; top:60px; left:50%; transform:translateX(-50%) translateY(-8px); z-index:9;
+    display:none; align-items:center; gap:12px; padding:7px 8px 7px 16px; border-radius:999px;
+    background:var(--surface); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border:1px solid var(--line); box-shadow:var(--shadow); opacity:0;
+    transition:opacity .4s ease, transform .4s ease;
+  }
+  .tourpill.show{ display:inline-flex; opacity:1; transform:translateX(-50%); }
+  .tourpill .tp-label{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--muted); }
+  .tourpill .tp-label b{ color:var(--ink); font-weight:600; }
+  .tourpill #tourStop{
+    all:unset; cursor:pointer; font-size:11px; font-weight:600; letter-spacing:.02em;
+    padding:6px 13px; border-radius:999px; background:rgba(255,255,255,0.07);
+    border:1px solid var(--line); color:var(--ink); transition:background .2s, border-color .2s;
+  }
+  .tourpill #tourStop:hover{ background:color-mix(in srgb,var(--accent) 30%, rgba(255,255,255,0.07)); border-color:var(--accent); }
+  .tourpill #tourStop:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .npdiv{ width:1px; height:22px; background:var(--line); margin:0 2px; }
+  .intro-cta{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .begin.ghost{ background:transparent; color:var(--ink); border:1px solid var(--line); box-shadow:none; }
+  .begin.ghost:hover{ background:rgba(255,255,255,0.05); box-shadow:none; transform:translateY(-2px); }
+  .ptri{ display:inline-block; width:0; height:0; border-left:9px solid currentColor; border-top:6px solid transparent; border-bottom:6px solid transparent; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bio"></canvas>
+  <div class="vignette"></div>
+
+  <div class="topbar">
+    <span class="wordmark">SCALE<span class="dot">.</span></span>
+    <span class="tagline">a descent through the body — <b>wrist to genome</b></span>
+  </div>
+
+  <div class="tourbar hidden" id="tourbar"><div class="tourbar-fill" id="tourfill"></div></div>
+  <div class="tourpill" id="tourpill">
+    <span class="tp-label" id="tpLabel">Auto-tour</span>
+    <button id="tourStop">Stop</button>
+  </div>
+
+  <nav class="rail" id="rail" aria-label="Depth"></nav>
+
+  <div class="readout">
+    <div class="mag fade" id="r-mag"></div>
+    <h1 class="fade" id="r-title"></h1>
+    <p class="fade" id="r-caption"></p>
+  </div>
+
+  <div class="controls" id="controls"></div>
+
+  <div class="navpager">
+    <button id="tourToggle" aria-label="Play guided tour">
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <span class="npdiv"></span>
+    <button id="prev" aria-label="Ascend (previous scale)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+    </button>
+    <span class="depth" id="depth">01 / 06</span>
+    <button id="next" aria-label="Descend (next scale)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+  </div>
+
+  <div class="floatlabel" id="floatlabel"></div>
+
+  <div class="intro" id="intro">
+    <div class="intro-inner">
+      <div class="eyebrow">Applied biology · interactive</div>
+      <h2>Scale</h2>
+      <p class="lede">Your heartbeat begins on your <b>wrist</b>. Follow it down — through the heart, into a living cell, across a firing neuron, to the <b>two-nanometre helix</b> that wrote you, and the <b>carbon atoms</b> — forged in stars — beneath even that.</p>
+      <div class="intro-cta">
+        <button class="begin" id="beginBtn">Begin the descent <span class="arw">↓</span></button>
+        <button class="begin ghost" id="tourBtn"><span class="ptri"></span> Play the tour</button>
+      </div>
+      <div class="credits">six scales · 10⁰ m → 10⁻¹⁰ m · built for the curious</div>
+      <div class="madeon">Proudly built on Apple's MacBook Air</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---------- shared state ----------
+  const state = {
+    bpm: 72,
+    scene: 0,
+    from: 0,
+    trans: 1,          // 1 = settled; <1 during transition
+    started: false,
+    // per-scene interactive state
+    cellPick: null,
+    heartFlow: true,
+    fireQueue: [],     // neuron action potentials in flight (start time)
+    lastAuto: 0,
+    dnaSpin: 0,
+    dnaVel: 0.35,
+    dragDNA: false,
+    atomCloud: false,
+    touring: false,
+  };
+
+  // ---------- scene definitions ----------
+  const SCENES = [
+    {
+      key:"wrist", idx:"01", mag:"10⁰ m", magWord:"one metre",
+      accent:"#ff4d6d", accentInk:"#ffd9e0", rail:"The Wrist",
+      title:"It starts on your wrist",
+      caption:"A watch reads the pulse of blood beneath the skin — the same rhythm that reaches every cell you own. Set the beat; everything below will follow it."
+    },
+    {
+      key:"heart", idx:"02", mag:"10⁻¹ m", magWord:"ten centimetres",
+      accent:"#ff6a48", accentInk:"#ffe0d3", rail:"The Heart",
+      title:"A fist that never rests",
+      caption:"Two pumps in one muscle move five litres a minute, roughly three billion beats across a life. Watch it fill and empty in time with the rhythm you chose."
+    },
+    {
+      key:"cell", idx:"03", mag:"10⁻⁵ m", magWord:"ten microns",
+      accent:"#37e0a6", accentInk:"#c9fbe8", rail:"The Cell",
+      title:"A city inside a droplet",
+      caption:"Thirty-seven trillion of these build you. Its power plants — the mitochondria — flicker with each heartbeat's demand for oxygen. Tap a part to name it."
+    },
+    {
+      key:"neuron", idx:"04", mag:"10⁻⁷ m", magWord:"the synapse",
+      accent:"#7c8cff", accentInk:"#dfe4ff", rail:"The Neuron",
+      title:"Thought, travelling as electricity",
+      caption:"A nerve cell holds −70 millivolts until it fires, then a wave of +40 sprints down the axon at up to 120 m/s. Send a signal and watch it run."
+    },
+    {
+      key:"dna", idx:"05", mag:"10⁻⁹ m", magWord:"two nanometres",
+      accent:"#ffc24b", accentInk:"#ffeec2", rail:"The Helix",
+      title:"The code that wrote all of it",
+      caption:"Two metres of DNA coil inside almost every cell — 3.2 billion letters in four. A pairs with T, G with C. Drag to turn the strand you were written from."
+    },
+    {
+      key:"atom", idx:"06", mag:"10⁻¹⁰ m", magWord:"one ångström",
+      accent:"#54d0e6", accentInk:"#cbf3fb", rail:"The Atom",
+      title:"And beneath it all — carbon",
+      caption:"Every rung of that helix is built from atoms: mostly carbon, six protons at its core, four bonds reaching outward. These were forged inside dying stars. You are, quite literally, made of starlight."
+    },
+  ];
+
+  // ---------- canvas setup ----------
+  const canvas = document.getElementById("bio");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1, cx = 0, cy = 0;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    cx = W / 2; cy = H / 2;
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---------- helpers ----------
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp = (a,b,t)=>a+(b-a)*t;
+  const easeInOut = t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+  const easeOut = t => 1-Math.pow(1-t,3);
+  function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
+  function rgba(hex,a){ const [r,g,b]=hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+
+  // cardiac cycle: phase 0..1 across one beat; returns contraction envelope 0..1
+  function beatInterval(){ return 60 / state.bpm; }
+  function beatPhase(time){ const p=(time % beatInterval())/beatInterval(); return p; }
+  // envelope with a sharp systolic contraction then relax
+  function contraction(phase){
+    // quick squeeze near phase 0.08, gentle relax
+    const a = Math.exp(-Math.pow((phase-0.10)/0.07,2));
+    const b = 0.45*Math.exp(-Math.pow((phase-0.32)/0.14,2));
+    return clamp(a + b, 0, 1);
+  }
+  // ECG PQRST value for a normalized position 0..1 within a beat
+  function ecg(p){
+    let v = 0;
+    v += 0.10*Math.exp(-Math.pow((p-0.16)/0.022,2));            // P
+    v += -0.12*Math.exp(-Math.pow((p-0.255)/0.008,2));          // Q
+    v += 1.00*Math.exp(-Math.pow((p-0.28)/0.0075,2));           // R
+    v += -0.22*Math.exp(-Math.pow((p-0.315)/0.010,2));          // S
+    v += 0.24*Math.exp(-Math.pow((p-0.52)/0.035,2));            // T
+    return v;
+  }
+
+  // ---------- background ambience ----------
+  const stars = Array.from({length:70}, () => ({
+    x:Math.random(), y:Math.random(), r:Math.random()*1.3+0.2, tw:Math.random()*6.28
+  }));
+  function drawBackdrop(time, accent){
+    ctx.fillStyle = "#06080c";
+    ctx.fillRect(0,0,W,H);
+    // deep radial glow in accent
+    const g = ctx.createRadialGradient(cx, cy*0.92, 0, cx, cy*0.92, Math.max(W,H)*0.62);
+    g.addColorStop(0, rgba(accent, 0.11));
+    g.addColorStop(0.45, rgba(accent, 0.03));
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // floating particles
+    for(const s of stars){
+      const tw = reduced ? 0.6 : (0.4 + 0.6*Math.abs(Math.sin(time*0.6 + s.tw)));
+      ctx.beginPath();
+      ctx.arc(s.x*W, s.y*H, s.r, 0, 6.283);
+      ctx.fillStyle = rgba(accent, 0.05 + 0.09*tw);
+      ctx.fill();
+    }
+  }
+
+  function glowDot(x,y,r,color,intensity){
+    const g = ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0, rgba(color, 0.9*intensity));
+    g.addColorStop(0.4, rgba(color, 0.35*intensity));
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,6.283); ctx.fill();
+  }
+
+  // ============================================================
+  //  SCENE 1 — THE WRIST (watch + ECG + activity ring)
+  // ============================================================
+  function drawWrist(time, accent){
+    const scale = Math.min(W,H);
+    const wsz = clamp(scale*0.30, 190, 340);   // watch size
+    const wx = cx, wy = cy - H*0.02;
+    const beat = contraction(beatPhase(time));
+
+    // activity ring behind watch
+    const ringR = wsz*0.74;
+    ctx.lineWidth = clamp(wsz*0.055,10,20);
+    ctx.lineCap = "round";
+    // track
+    ctx.beginPath(); ctx.arc(wx,wy,ringR,0,6.283); ctx.strokeStyle=rgba(accent,0.10); ctx.stroke();
+    // progress (maps bpm 50..170 -> .12..1 of ring, looping subtly with time)
+    const prog = clamp((state.bpm-48)/(175-48),0.08,1);
+    const sweep = 6.283*prog;
+    const start = -Math.PI/2;
+    const grad = ctx.createLinearGradient(wx-ringR,wy-ringR,wx+ringR,wy+ringR);
+    grad.addColorStop(0, rgba(accent,0.6)); grad.addColorStop(1, accent);
+    ctx.beginPath(); ctx.arc(wx,wy,ringR,start,start+sweep); ctx.strokeStyle=grad;
+    ctx.shadowColor=accent; ctx.shadowBlur=18; ctx.stroke(); ctx.shadowBlur=0;
+    // ring head glow
+    const hx=wx+ringR*Math.cos(start+sweep), hy=wy+ringR*Math.sin(start+sweep);
+    glowDot(hx,hy,16+beat*10,accent,0.8);
+
+    // watch body (rounded square)
+    const half=wsz/2;
+    const bodyGrad=ctx.createLinearGradient(wx,wy-half,wx,wy+half);
+    bodyGrad.addColorStop(0,"#1b1f27"); bodyGrad.addColorStop(1,"#0c0e13");
+    roundRect(wx-half,wy-half,wsz,wsz,wsz*0.30);
+    ctx.fillStyle=bodyGrad; ctx.fill();
+    ctx.lineWidth=1.5; ctx.strokeStyle="rgba(255,255,255,0.10)"; ctx.stroke();
+    // inner screen bezel
+    const pad=wsz*0.055, ssz=wsz-pad*2;
+    roundRect(wx-ssz/2,wy-ssz/2,ssz,ssz,ssz*0.30);
+    ctx.fillStyle="#050608"; ctx.fill();
+
+    // clip to screen for ECG + text
+    ctx.save();
+    roundRect(wx-ssz/2,wy-ssz/2,ssz,ssz,ssz*0.30); ctx.clip();
+
+    // ECG trace scrolling across screen
+    const trackY = wy + ssz*0.06;
+    const amp = ssz*0.26;
+    const beatsOnScreen = 2.1;
+    const speed = time / beatInterval();
+    ctx.beginPath();
+    for(let i=0;i<=ssz;i+=2){
+      const fx = i/ssz;                       // 0..1 across screen
+      const p = (fx*beatsOnScreen + speed) % 1;
+      const v = ecg(p);
+      const x = wx-ssz/2 + i;
+      const y = trackY - v*amp;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=accent; ctx.lineWidth=2.4; ctx.lineJoin="round";
+    ctx.shadowColor=accent; ctx.shadowBlur=10; ctx.stroke(); ctx.shadowBlur=0;
+
+    // bpm readout on screen
+    ctx.textAlign="center";
+    ctx.fillStyle="#eef2f8";
+    ctx.font=`700 ${ssz*0.30}px "SF Pro Display", "Inter", -apple-system, sans-serif`;
+    ctx.fillText(String(state.bpm), wx, wy - ssz*0.16);
+    ctx.fillStyle=accent;
+    ctx.font=`600 ${ssz*0.072}px "SF Pro Text", "Inter", -apple-system, sans-serif`;
+    ctx.fillText("BPM", wx, wy - ssz*0.02);
+    // tiny heart pip
+    const pipY = wy + ssz*0.30;
+    ctx.fillStyle=rgba(accent, 0.55 + 0.45*beat);
+    heartPath(wx, pipY, ssz*0.05*(1+0.22*beat));
+    ctx.fill();
+    ctx.restore();
+
+    // reflection sheen
+    ctx.save();
+    roundRect(wx-ssz/2,wy-ssz/2,ssz,ssz,ssz*0.30); ctx.clip();
+    const sh=ctx.createLinearGradient(wx-ssz/2,wy-ssz/2,wx-ssz/6,wy-ssz/6);
+    sh.addColorStop(0,"rgba(255,255,255,0.06)"); sh.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.fillStyle=sh; ctx.fillRect(wx-ssz/2,wy-ssz/2,ssz,ssz);
+    ctx.restore();
+  }
+
+  // ============================================================
+  //  SCENE 2 — THE HEART (beating anatomical-ish heart + flow)
+  // ============================================================
+  const flowP = Array.from({length:46},()=>({t:Math.random(),lane:Math.floor(Math.random()*4),sp:0.25+Math.random()*0.4}));
+  function drawHeart(time, accent){
+    const beat = contraction(beatPhase(time));
+    const s = Math.min(W,H)*0.00150;
+    const size = clamp(Math.min(W,H)*0.34,180,360);
+    const pulse = 1 + beat*0.085;
+    ctx.save();
+    ctx.translate(cx, cy - H*0.015);
+    ctx.scale(pulse, pulse);
+
+    // outer glow grows with beat
+    glowDot(0,0, size*0.95, accent, 0.28 + beat*0.4);
+
+    // heart silhouette
+    ctx.save();
+    ctx.scale(size*0.010, size*0.010);   // path authored ~ -100..100
+    heartShape();
+    const hg = ctx.createLinearGradient(0,-90,0,90);
+    hg.addColorStop(0, rgba(accent,0.95));
+    hg.addColorStop(1, rgba("#7a0f1f",0.95));
+    ctx.fillStyle=hg; ctx.fill();
+    ctx.lineWidth=2.4; ctx.strokeStyle=rgba(accent,0.9);
+    ctx.shadowColor=accent; ctx.shadowBlur=22; ctx.stroke(); ctx.shadowBlur=0;
+
+    // inner chamber shading
+    ctx.globalCompositeOperation="overlay";
+    ctx.beginPath(); ctx.ellipse(-26,-6,34,44,0,0,6.283); ctx.fillStyle=rgba("#ffffff",0.10*(1-beat*0.5)); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(30,2,30,42,0,0,6.283); ctx.fillStyle=rgba("#ffffff",0.08*(1-beat*0.5)); ctx.fill();
+    ctx.globalCompositeOperation="source-over";
+    ctx.restore();
+
+    ctx.restore();
+
+    // blood-flow particles along vessels (screen space)
+    if(state.heartFlow){
+      const lanes=[
+        {a:{x:cx-size*0.10,y:cy-size*0.55}, b:{x:cx-size*0.05,y:cy+size*0.2}, col:accent},
+        {a:{x:cx+size*0.05,y:cy+size*0.2}, b:{x:cx+size*0.16,y:cy-size*0.5}, col:"#8fb4ff"},
+        {a:{x:cx-size*0.32,y:cy-size*0.1}, b:{x:cx-size*0.05,y:cy+size*0.05}, col:accent},
+        {a:{x:cx+size*0.06,y:cy+size*0.05}, b:{x:cx+size*0.34,y:cy-size*0.08}, col:"#8fb4ff"},
+      ];
+      for(const fp of flowP){
+        fp.t += fp.sp*0.006*(0.6+state.bpm/72);
+        if(fp.t>1) fp.t-=1;
+        const L=lanes[fp.lane];
+        const x=lerp(L.a.x,L.b.x,fp.t), y=lerp(L.a.y,L.b.y,fp.t);
+        ctx.beginPath(); ctx.arc(x,y,2.1,0,6.283);
+        ctx.fillStyle=rgba(L.col,0.5); ctx.fill();
+      }
+    }
+  }
+  function heartShape(){
+    // symmetric-ish anatomical heart, coordinates ~ [-95,95]
+    ctx.beginPath();
+    ctx.moveTo(0,-38);
+    ctx.bezierCurveTo(-18,-74,-78,-64,-82,-20);
+    ctx.bezierCurveTo(-86,14,-44,44,0,86);
+    ctx.bezierCurveTo(44,44,86,14,82,-20);
+    ctx.bezierCurveTo(78,-64,18,-74,0,-38);
+    ctx.closePath();
+  }
+  function heartPath(x,y,r){
+    ctx.save(); ctx.translate(x,y); ctx.scale(r/95,r/95); heartShape(); ctx.restore();
+  }
+
+  // ============================================================
+  //  SCENE 3 — THE CELL
+  // ============================================================
+  let cellParts = [];
+  function buildCell(){
+    const R = clamp(Math.min(W,H)*0.34,170,330);
+    const parts = [];
+    parts.push({id:"membrane", name:"Cell membrane", sub:"a two-molecule skin", x:cx, y:cy, r:R, kind:"membrane"});
+    parts.push({id:"nucleus", name:"Nucleus", sub:"holds the DNA", x:cx+R*0.05, y:cy-R*0.05, r:R*0.30, kind:"nucleus"});
+    // mitochondria
+    const mito=[[-0.55,0.30],[0.5,0.42],[-0.30,-0.5],[0.45,-0.35],[0.62,0.05]];
+    mito.forEach((m,i)=>parts.push({id:"mito"+i, name:"Mitochondrion", sub:"the cell's power plant", x:cx+R*m[0], y:cy+R*m[1], r:R*0.13, ang:i*1.1, kind:"mito"}));
+    // ER / ribosomes dots handled decoratively
+    cellParts = parts;
+  }
+  function drawCell(time, accent){
+    if(!cellParts.length) buildCell();
+    const beat = contraction(beatPhase(time));
+    const mem = cellParts[0];
+    // cytoplasm fill
+    const cg=ctx.createRadialGradient(mem.x,mem.y,mem.r*0.2,mem.x,mem.y,mem.r);
+    cg.addColorStop(0,rgba(accent,0.10)); cg.addColorStop(0.7,rgba(accent,0.05)); cg.addColorStop(1,rgba(accent,0.14));
+    ctx.beginPath(); ctx.arc(mem.x,mem.y,mem.r,0,6.283); ctx.fillStyle=cg; ctx.fill();
+    // membrane wobble ring
+    ctx.beginPath();
+    for(let a=0;a<=6.283;a+=0.08){
+      const wob = 1 + 0.012*Math.sin(a*7 + time*0.8);
+      const x=mem.x+Math.cos(a)*mem.r*wob, y=mem.y+Math.sin(a)*mem.r*wob;
+      a===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.lineWidth=3; ctx.strokeStyle=rgba(accent,0.85);
+    ctx.shadowColor=accent; ctx.shadowBlur=16; ctx.stroke(); ctx.shadowBlur=0;
+    // faint bilayer inner ring
+    ctx.beginPath(); ctx.arc(mem.x,mem.y,mem.r-6,0,6.283);
+    ctx.setLineDash([2,4]); ctx.lineWidth=1; ctx.strokeStyle=rgba(accent,0.35); ctx.stroke(); ctx.setLineDash([]);
+
+    // ribosome specks drifting
+    for(let i=0;i<60;i++){
+      const a=i*2.399, rr=mem.r*(0.35+0.6*((i*97)%100)/100);
+      const dx=Math.cos(a+time*0.05)*rr, dy=Math.sin(a+time*0.05)*rr;
+      ctx.beginPath(); ctx.arc(mem.x+dx,mem.y+dy,1.1,0,6.283);
+      ctx.fillStyle=rgba("#dfeefe",0.18); ctx.fill();
+    }
+
+    // mitochondria (pulse with heartbeat)
+    for(const p of cellParts){
+      if(p.kind!=="mito") continue;
+      const lit = 0.4 + 0.6*beat;
+      ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.ang + Math.sin(time*0.3+p.ang)*0.1);
+      glowDot(0,0,p.r*1.7,accent,0.25+0.5*beat);
+      ctx.beginPath(); ctx.ellipse(0,0,p.r,p.r*0.52,0,0,6.283);
+      ctx.fillStyle=rgba("#0c1512",0.9); ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle=rgba(accent,0.7+0.3*lit); ctx.stroke();
+      // cristae
+      ctx.lineWidth=1.2; ctx.strokeStyle=rgba(accent,0.55*lit);
+      for(let k=-3;k<=3;k++){ ctx.beginPath(); ctx.moveTo(k*p.r*0.24,-p.r*0.4); ctx.quadraticCurveTo(k*p.r*0.24+p.r*0.12,0,k*p.r*0.24,p.r*0.4); ctx.stroke(); }
+      ctx.restore();
+    }
+
+    // nucleus
+    const nuc=cellParts[1];
+    const ng=ctx.createRadialGradient(nuc.x-nuc.r*0.3,nuc.y-nuc.r*0.3,0,nuc.x,nuc.y,nuc.r);
+    ng.addColorStop(0,rgba("#f2f7ff",0.22)); ng.addColorStop(0.5,rgba(accent,0.30)); ng.addColorStop(1,rgba(accent,0.6));
+    ctx.beginPath(); ctx.arc(nuc.x,nuc.y,nuc.r,0,6.283); ctx.fillStyle=ng; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle=rgba(accent,0.8); ctx.stroke();
+    // chromatin threads
+    ctx.save(); ctx.beginPath(); ctx.arc(nuc.x,nuc.y,nuc.r,0,6.283); ctx.clip();
+    ctx.lineWidth=1.4; ctx.strokeStyle=rgba("#ffffff",0.22);
+    for(let i=0;i<7;i++){
+      ctx.beginPath();
+      for(let a=0;a<3;a+=0.2){ const rr=nuc.r*0.7; const x=nuc.x+Math.cos(a*3+i)*rr*(a/3); const y=nuc.y+Math.sin(a*4+i*1.4)*rr*(a/3); a===0?ctx.moveTo(x,y):ctx.lineTo(x,y);} ctx.stroke();
+    }
+    ctx.restore();
+    // nucleolus
+    ctx.beginPath(); ctx.arc(nuc.x+nuc.r*0.15,nuc.y+nuc.r*0.1,nuc.r*0.24,0,6.283); ctx.fillStyle=rgba(accent,0.75); ctx.fill();
+
+    // selected highlight ring
+    if(state.cellPick){
+      const p=cellParts.find(z=>z.id===state.cellPick);
+      if(p){
+        ctx.beginPath(); ctx.arc(p.x,p.y,(p.kind==="mito"?p.r*1.5:p.r)+8,0,6.283);
+        ctx.setLineDash([4,5]); ctx.lineWidth=1.6; ctx.strokeStyle=rgba("#ffffff",0.7); ctx.stroke(); ctx.setLineDash([]);
+      }
+    }
+  }
+
+  // ============================================================
+  //  SCENE 4 — THE NEURON
+  // ============================================================
+  let neuron=null;
+  function buildNeuron(){
+    const soma={x:cx-Math.min(W,H)*0.24, y:cy};
+    const somaR=clamp(Math.min(W,H)*0.06,34,64);
+    const axonEnd={x:cx+Math.min(W,H)*0.30, y:cy};
+    // dendrites
+    const dend=[];
+    for(let i=0;i<7;i++){
+      const a=Math.PI*0.55 + i*(Math.PI*0.9/6);
+      dend.push(a);
+    }
+    neuron={soma,somaR,axonEnd,dend, len:axonEnd.x-soma.x};
+  }
+  function drawNeuron(time, accent){
+    if(!neuron) buildNeuron();
+    const n=neuron;
+    // auto fire occasionally
+    if(!reduced && time - state.lastAuto > (2.4 + Math.random()*1.5)){
+      state.lastAuto=time; state.fireQueue.push(time);
+    }
+    // axon path (slightly wavy)
+    const segs=90;
+    function axonPt(t){ // t 0..1
+      const x=lerp(n.soma.x, n.axonEnd.x, t);
+      const y=n.soma.y + Math.sin(t*7)*8*(1-t)*0 + Math.sin(t*3.2)*10;
+      return {x,y};
+    }
+    // myelin-ish base axon
+    ctx.lineWidth=9; ctx.lineCap="round"; ctx.strokeStyle=rgba("#1a2233",0.9);
+    ctx.beginPath();
+    for(let i=0;i<=segs;i++){const p=axonPt(i/segs); i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);} ctx.stroke();
+    ctx.lineWidth=4; ctx.strokeStyle=rgba(accent,0.28);
+    ctx.beginPath();
+    for(let i=0;i<=segs;i++){const p=axonPt(i/segs); i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);} ctx.stroke();
+
+    // terminal branches
+    const end=axonPt(1);
+    ctx.lineWidth=3; ctx.strokeStyle=rgba(accent,0.5);
+    for(let i=-2;i<=2;i++){
+      ctx.beginPath(); ctx.moveTo(end.x,end.y);
+      ctx.quadraticCurveTo(end.x+30,end.y+i*10,end.x+52,end.y+i*26); ctx.stroke();
+      ctx.beginPath(); ctx.arc(end.x+52,end.y+i*26,4,0,6.283); ctx.fillStyle=rgba(accent,0.6); ctx.fill();
+    }
+
+    // dendrites
+    ctx.lineWidth=3; ctx.strokeStyle=rgba(accent,0.45);
+    for(const a of n.dend){
+      const ex=n.soma.x+Math.cos(a)*n.somaR*2.6, ey=n.soma.y+Math.sin(a)*n.somaR*2.6;
+      ctx.beginPath(); ctx.moveTo(n.soma.x+Math.cos(a)*n.somaR, n.soma.y+Math.sin(a)*n.somaR);
+      ctx.quadraticCurveTo(n.soma.x+Math.cos(a)*n.somaR*1.9, n.soma.y+Math.sin(a)*n.somaR*1.9, ex,ey);
+      ctx.stroke();
+      // twiglets
+      for(let k=-1;k<=1;k+=2){ ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex+Math.cos(a+k*0.4)*22, ey+Math.sin(a+k*0.4)*22); ctx.stroke(); }
+    }
+
+    // action potentials in flight
+    const speed=0.75; // fraction of axon per second baseline
+    state.fireQueue = state.fireQueue.filter(t0=>{
+      const prog=(time-t0)*speed;
+      if(prog>1.15) return false;
+      if(prog<=1){
+        const p=axonPt(prog);
+        glowDot(p.x,p.y,26,accent,0.9);
+        ctx.beginPath(); ctx.arc(p.x,p.y,5,0,6.283); ctx.fillStyle="#ffffff"; ctx.fill();
+        // little tail
+        for(let tt=1;tt<=5;tt++){ const pp=axonPt(clamp(prog-tt*0.03,0,1)); ctx.beginPath(); ctx.arc(pp.x,pp.y,4-tt*0.5,0,6.283); ctx.fillStyle=rgba(accent,0.4-tt*0.06); ctx.fill(); }
+      } else {
+        // arrival flash at terminals
+        glowDot(end.x+40,end.y,30*(1.15-prog)/0.15,accent,0.8);
+      }
+      return true;
+    });
+
+    // soma
+    const firing = state.fireQueue.some(t0=> (time-t0)<0.12);
+    glowDot(n.soma.x,n.soma.y,n.somaR*2.4,accent,firing?0.9:0.3);
+    const sg=ctx.createRadialGradient(n.soma.x-n.somaR*0.3,n.soma.y-n.somaR*0.3,0,n.soma.x,n.soma.y,n.somaR);
+    sg.addColorStop(0,rgba("#f4f7ff",0.5)); sg.addColorStop(0.5,rgba(accent,0.5)); sg.addColorStop(1,rgba(accent,0.85));
+    ctx.beginPath(); ctx.arc(n.soma.x,n.soma.y,n.somaR,0,6.283); ctx.fillStyle=sg; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle=rgba(accent,0.9); ctx.stroke();
+    // nucleus
+    ctx.beginPath(); ctx.arc(n.soma.x,n.soma.y,n.somaR*0.4,0,6.283); ctx.fillStyle=rgba("#ffffff",0.35); ctx.fill();
+
+    // membrane potential mini-graph (top-left inside stage)
+    drawVoltageGraph(time, accent);
+  }
+  const vHist=[];
+  function drawVoltageGraph(time, accent){
+    const gw=clamp(W*0.2,150,240), gh=70;
+    const gx=clamp(W*0.06,20,90), gy=cy - Math.min(W,H)*0.26 - gh;
+    // compute current mV
+    let mv=-70;
+    for(const t0 of state.fireQueue){
+      const dt=time-t0;
+      if(dt>=0 && dt<0.4){ mv = Math.max(mv, -70 + 110*Math.exp(-Math.pow((dt-0.06)/0.03,2)) - 25*Math.exp(-Math.pow((dt-0.16)/0.05,2))); }
+    }
+    vHist.push(mv); if(vHist.length>gw) vHist.shift();
+    // frame
+    roundRect(gx,gy,gw,gh,10); ctx.fillStyle="rgba(8,11,17,0.6)"; ctx.fill();
+    ctx.lineWidth=1; ctx.strokeStyle=rgba(accent,0.25); ctx.stroke();
+    // zero-ish line (-55 threshold)
+    ctx.save(); roundRect(gx,gy,gw,gh,10); ctx.clip();
+    const toY=v=> gy+gh - ((v+90)/(50+90))*gh;
+    ctx.setLineDash([3,4]); ctx.strokeStyle=rgba("#ffffff",0.15); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(gx,toY(-55)); ctx.lineTo(gx+gw,toY(-55)); ctx.stroke(); ctx.setLineDash([]);
+    // trace
+    ctx.beginPath();
+    for(let i=0;i<vHist.length;i++){ const x=gx+i, y=toY(vHist[i]); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+    ctx.strokeStyle=accent; ctx.lineWidth=1.8; ctx.shadowColor=accent; ctx.shadowBlur=8; ctx.stroke(); ctx.shadowBlur=0;
+    ctx.restore();
+    // labels
+    ctx.textAlign="left"; ctx.fillStyle=rgba("#9aa4b5",0.9);
+    ctx.font='500 10px "JetBrains Mono", monospace';
+    ctx.fillText("membrane potential", gx+8, gy-6);
+    ctx.textAlign="right"; ctx.fillStyle=rgba(accent,0.9);
+    ctx.fillText(Math.round(vHist[vHist.length-1]||-70)+" mV", gx+gw-8, gy-6);
+  }
+
+  // ============================================================
+  //  SCENE 5 — THE DNA HELIX
+  // ============================================================
+  const BASES=[]; // sequence of pairs
+  (function seedBases(){ const opts=[["A","T","#37e0a6","#ff6a48"],["T","A","#ff6a48","#37e0a6"],["G","C","#7c8cff","#ffc24b"],["C","G","#ffc24b","#7c8cff"]];
+    for(let i=0;i<44;i++){ BASES.push(opts[Math.floor(Math.random()*4)]); } })();
+  let dnaHover=-1;
+  function drawDNA(time, accent){
+    if(!state.dragDNA && !reduced) state.dnaSpin += state.dnaVel*0.016;
+    const beat=contraction(beatPhase(time));
+    const H0=Math.min(H*0.72, 620);
+    const topY=cy - H0/2, n=BASES.length;
+    const radius=clamp(Math.min(W,H)*0.11,70,150);
+    const spin=state.dnaSpin;
+    dnaHover=-1;
+
+    // collect rungs with depth for painter's sorting
+    const rungs=[];
+    for(let i=0;i<n;i++){
+      const t=i/(n-1);
+      const y=topY + t*H0;
+      const ang=spin + i*0.42;
+      const x1=cx+Math.cos(ang)*radius;
+      const x2=cx+Math.cos(ang+Math.PI)*radius;
+      const z1=Math.sin(ang), z2=Math.sin(ang+Math.PI);
+      rungs.push({i,y,x1,x2,z1,z2,ang});
+    }
+    // backbone strands (draw as two sine ribbons behind)
+    for(const strand of [0,Math.PI]){
+      ctx.beginPath();
+      for(let i=0;i<n;i++){
+        const t=i/(n-1), y=topY+t*H0, ang=spin+i*0.42+strand;
+        const x=cx+Math.cos(ang)*radius;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.lineWidth=5; ctx.lineCap="round";
+      ctx.strokeStyle=rgba(strand===0?accent:"#ffffff",0.28);
+      ctx.stroke();
+    }
+    // sort rungs back-to-front by average z
+    rungs.sort((a,b)=>((a.z1+a.z2)-(b.z1+b.z2)));
+    const [mx,my]=[mouse.x,mouse.y];
+    for(const r of rungs){
+      const depth=(r.z1+r.z2)/2;            // -1 back .. 1 front
+      const bright=0.35+0.65*((depth+1)/2);
+      const [b1,b2,c1,c2]=BASES[r.i];
+      // hover test (near midpoint)
+      const midx=(r.x1+r.x2)/2;
+      if(mouse.on && Math.abs(my-r.y)<8 && Math.abs(mx-midx)<radius){ dnaHover=r.i; }
+      const isHover=dnaHover===r.i;
+      // rung
+      ctx.beginPath(); ctx.moveTo(r.x1,r.y); ctx.lineTo(r.x2,r.y);
+      ctx.lineWidth=isHover?5:3;
+      const grad=ctx.createLinearGradient(r.x1,r.y,r.x2,r.y);
+      grad.addColorStop(0,rgba(c1,bright)); grad.addColorStop(0.5,rgba("#ffffff",0.12*bright)); grad.addColorStop(1,rgba(c2,bright));
+      ctx.strokeStyle=grad; ctx.stroke();
+      // nucleotide nodes
+      const nodeR=(2.6+2.2*((depth+1)/2))*(isHover?1.5:1);
+      ctx.beginPath(); ctx.arc(r.x1,r.y,nodeR,0,6.283); ctx.fillStyle=rgba(c1,bright); ctx.fill();
+      ctx.beginPath(); ctx.arc(r.x2,r.y,nodeR,0,6.283); ctx.fillStyle=rgba(c2,bright); ctx.fill();
+      if(isHover){ glowDot(r.x1,r.y,16,c1,0.8); glowDot(r.x2,r.y,16,c2,0.8); }
+    }
+    // subtle beat glow
+    glowDot(cx,cy,radius*3.2,accent,0.06+beat*0.06);
+
+    // hover label
+    const fl=document.getElementById("floatlabel");
+    if(dnaHover>=0){
+      const r=rungs.find(z=>z.i===dnaHover);
+      const [b1,b2]=BASES[dnaHover];
+      fl.innerHTML=`${b1} — ${b2} <span class="sub">${(b1==="A"||b1==="T")?"2 H-bonds":"3 H-bonds"}</span>`;
+      fl.style.left=cx+"px"; fl.style.top=(r.y)+"px"; fl.classList.add("show");
+    } else if(state.scene===4){ fl.classList.remove("show"); }
+  }
+
+  // ============================================================
+  //  SCENE 6 — THE ATOM (carbon)
+  // ============================================================
+  const nucleons=[];
+  (function packNucleons(){
+    const pts=[[0,0],[1,0],[0.5,0.87],[-0.5,0.87],[-1,0],[-0.5,-0.87],[0.5,-0.87],
+              [1.5,0.87],[0,1.73],[-1.5,0.87],[-1.5,-0.87],[1.5,-0.87]];
+    for(let i=0;i<12;i++){ const p=pts[i]||[0,0]; nucleons.push({x:p[0], y:p[1], proton:i%2===0}); }
+  })();
+  const atomOrbits=[
+    {R:0.42, tilt:0.55, rot:0.4, n:2, sp:1.5, ph:0},      // inner shell (2)
+    {R:0.86, tilt:-0.65, rot:1.9, n:2, sp:0.85, ph:0.6},  // outer shell (2)
+    {R:0.86, tilt:0.95, rot:-0.6, n:2, sp:1.0, ph:2.4},   // outer shell (2)  → 4 outer
+  ];
+  function drawAtom(time, accent){
+    const beat=contraction(beatPhase(time));
+    const S=clamp(Math.min(W,H)*0.30,150,300);
+    // orbit rings
+    if(!state.atomCloud){
+      for(const o of atomOrbits){
+        const R=o.R*S, ry=R*Math.max(0.12,Math.cos(o.tilt));
+        ctx.save(); ctx.translate(cx,cy); ctx.rotate(o.rot);
+        ctx.beginPath(); ctx.ellipse(0,0,R,ry,0,0,6.283);
+        ctx.strokeStyle=rgba(accent,0.16); ctx.lineWidth=1.2; ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      // probability haze
+      for(let i=0;i<220;i++){
+        const shell = i%3===0? 0.42 : 0.86;
+        const rr = (shell + (Math.random()-0.5)*0.28)*S;
+        const a = Math.random()*6.283;
+        const x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr*0.9;
+        ctx.beginPath(); ctx.arc(x,y,1.1,0,6.283);
+        ctx.fillStyle=rgba(accent,0.06+Math.random()*0.06); ctx.fill();
+      }
+    }
+    // electrons (depth-sorted) sit above the rings
+    if(!state.atomCloud){
+      const es=[];
+      for(const o of atomOrbits){
+        const R=o.R*S, ry=R*Math.max(0.12,Math.cos(o.tilt));
+        for(let k=0;k<o.n;k++){
+          const a=time*o.sp + o.ph + k*(6.283/o.n);
+          const lx=Math.cos(a)*R, ly=Math.sin(a)*ry;
+          const x=cx + lx*Math.cos(o.rot) - ly*Math.sin(o.rot);
+          const y=cy + lx*Math.sin(o.rot) + ly*Math.cos(o.rot);
+          es.push({x,y,z:Math.sin(a),a,o});
+        }
+      }
+      es.sort((p,q)=>p.z-q.z);
+      for(const e of es){
+        const depth=(e.z+1)/2, r=2.4+3.0*depth;
+        for(let t=1;t<=5;t++){
+          const a2=e.a - t*0.10*e.o.sp;
+          const R=e.o.R*S, ry=R*Math.max(0.12,Math.cos(e.o.tilt));
+          const lx=Math.cos(a2)*R, ly=Math.sin(a2)*ry;
+          const tx=cx + lx*Math.cos(e.o.rot) - ly*Math.sin(e.o.rot);
+          const ty=cy + lx*Math.sin(e.o.rot) + ly*Math.cos(e.o.rot);
+          ctx.beginPath(); ctx.arc(tx,ty,Math.max(0.4,r*(1-t*0.16)),0,6.283);
+          ctx.fillStyle=rgba(accent,(0.30-t*0.05)*depth); ctx.fill();
+        }
+        glowDot(e.x,e.y,10+6*depth,accent,0.5+0.4*depth);
+        ctx.beginPath(); ctx.arc(e.x,e.y,r,0,6.283); ctx.fillStyle="#eafcff"; ctx.fill();
+      }
+    }
+    // nucleus (pulses subtly with the shared heartbeat)
+    const nsz=S*0.12*(1+beat*0.06);
+    glowDot(cx,cy,nsz*3.4,accent,0.30+beat*0.25);
+    for(const nu of nucleons){
+      const x=cx+nu.x*nsz*0.7, y=cy+nu.y*nsz*0.7;
+      const col = nu.proton? accent : "#9aa4b5";
+      const g=ctx.createRadialGradient(x-nsz*0.12,y-nsz*0.12,0,x,y,nsz*0.62);
+      g.addColorStop(0, nu.proton? rgba("#eafcff",0.92): rgba("#e6ebf2",0.72));
+      g.addColorStop(1, rgba(col,0.95));
+      ctx.beginPath(); ctx.arc(x,y,nsz*0.58,0,6.283); ctx.fillStyle=g; ctx.fill();
+    }
+  }
+
+  // ---------- shared shapes ----------
+  function roundRect(x,y,w,h,r){
+    r=Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  const RENDER=[drawWrist,drawHeart,drawCell,drawNeuron,drawDNA,drawAtom];
+
+  // ---------- main loop ----------
+  let startT=null;
+  function frame(ts){
+    if(startT===null) startT=ts;
+    const time=(ts-startT)/1000;
+
+    // transition progress
+    if(state.trans<1){ state.trans=clamp(state.trans + 0.020, 0, 1); }
+    const accFrom=SCENES[state.from].accent, accTo=SCENES[state.scene].accent;
+
+    ctx.clearRect(0,0,W,H);
+    if(state.trans<1){
+      const e=easeInOut(state.trans);
+      // fade/scale between scenes
+      const accMix=mixHex(accFrom,accTo,e);
+      drawBackdrop(time, accMix);
+      // outgoing
+      ctx.save(); ctx.globalAlpha=1-e;
+      const zo=lerp(1,0.82, e); ctx.translate(cx,cy); ctx.scale(zo,zo); ctx.translate(-cx,-cy);
+      RENDER[state.from](time, accFrom); ctx.restore();
+      // incoming
+      ctx.save(); ctx.globalAlpha=e;
+      const zi=lerp(1.18,1, e); ctx.translate(cx,cy); ctx.scale(zi,zi); ctx.translate(-cx,-cy);
+      RENDER[state.scene](time, accTo); ctx.restore();
+    } else {
+      drawBackdrop(time, accTo);
+      RENDER[state.scene](time, accTo);
+    }
+    requestAnimationFrame(frame);
+  }
+  function mixHex(h1,h2,t){ const a=hexToRgb(h1),b=hexToRgb(h2);
+    return `rgb(${Math.round(lerp(a[0],b[0],t))},${Math.round(lerp(a[1],b[1],t))},${Math.round(lerp(a[2],b[2],t))})`; }
+
+  // ---------- mouse (for dna hover + drag) ----------
+  const mouse={x:0,y:0,on:false};
+  canvas.addEventListener("pointermove",e=>{ mouse.x=e.clientX; mouse.y=e.clientY; mouse.on=true;
+    if(state.dragDNA){ state.dnaSpin += e.movementX*0.01; }
+  });
+  canvas.addEventListener("pointerleave",()=>{ mouse.on=false; });
+  canvas.addEventListener("pointerdown",e=>{
+    if(state.scene===4){ state.dragDNA=true; canvas.setPointerCapture(e.pointerId); }
+    else if(state.scene===2){ // cell pick
+      const hit=cellParts.filter(p=>p.kind!=="membrane").find(p=>Math.hypot(e.clientX-p.x,e.clientY-p.y) < (p.kind==="mito"?p.r*1.5:p.r));
+      state.cellPick = hit? hit.id : (Math.hypot(e.clientX-cx,e.clientY-cy)<cellParts[0].r? "membrane": state.cellPick);
+      if(hit || Math.hypot(e.clientX-cx,e.clientY-cy)<cellParts[0].r) showCellInfo();
+    }
+    else if(state.scene===3){ state.fireQueue.push(performance.now()/1000 - startT/1000); }
+  });
+  window.addEventListener("pointerup",()=>{ state.dragDNA=false; });
+
+  // ---------- scene UI (readout + controls) ----------
+  const rMag=document.getElementById("r-mag"), rTitle=document.getElementById("r-title"), rCap=document.getElementById("r-caption");
+  const controlsEl=document.getElementById("controls");
+
+  function applyAccent(hex, ink){
+    document.documentElement.style.setProperty("--accent", hex);
+    document.documentElement.style.setProperty("--accent-ink", ink);
+  }
+
+  function renderReadout(){
+    const s=SCENES[state.scene];
+    [rMag,rTitle,rCap].forEach(el=>el.classList.add("fade-out"));
+    setTimeout(()=>{
+      rMag.innerHTML=`<span class="idx">${s.idx}</span><span class="bar"></span>${s.mag} · ${s.magWord}`;
+      rTitle.textContent=s.title;
+      rCap.textContent=s.caption;
+      [rMag,rTitle,rCap].forEach(el=>el.classList.remove("fade-out"));
+    },230);
+  }
+
+  function buildControls(){
+    const s=SCENES[state.scene];
+    let html="";
+    if(s.key==="wrist"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Heart rate</span><span class="live"><span class="pip"></span>live</span></div>
+        <div class="bpm-row">
+          <div class="bpm-big" id="bpmView">${state.bpm}<small>bpm</small></div>
+          <div class="step">
+            <button id="bpmDown" aria-label="Lower heart rate">−</button>
+            <button id="bpmUp" aria-label="Raise heart rate">+</button>
+          </div>
+        </div>
+        <input class="slider" id="bpmSlide" type="range" min="48" max="175" value="${state.bpm}" aria-label="Heart rate">
+        <div class="hint" style="margin-top:10px">This rhythm carries all the way down — the cell and the helix below pulse with it.</div>
+      </div>`;
+    } else if(s.key==="heart"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Circulation</span><span class="live"><span class="pip"></span>${state.bpm} bpm</span></div>
+        <div class="readmini">Output ≈ <span class="v" id="co">—</span> · beats today ≈ <span class="v" id="beatsDay">—</span></div>
+        <div class="chip-row" style="margin-top:12px">
+          <button class="chip" id="flowChip" aria-pressed="${state.heartFlow}">blood flow</button>
+        </div>
+      </div>`;
+    } else if(s.key==="cell"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Organelles</span><span class="live"><span class="pip"></span>alive</span></div>
+        <div class="readmini" id="cellInfo">Tap a structure to identify it. The mitochondria brighten on every beat — the cell drawing oxygen.</div>
+        <div class="chip-row" style="margin-top:12px">
+          <button class="chip" data-part="nucleus">nucleus</button>
+          <button class="chip" data-part="mito0">mitochondria</button>
+          <button class="chip" data-part="membrane">membrane</button>
+        </div>
+      </div>`;
+    } else if(s.key==="neuron"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Action potential</span><span class="live"><span class="pip"></span>−70 mV rest</span></div>
+        <div class="readmini">A single "spike" is all-or-nothing: fire it and the pulse runs to the synapse, then resets.</div>
+        <button class="ghost-btn" id="fireBtn" style="margin-top:12px">⚡ Fire a signal</button>
+        <div class="hint" style="margin-top:8px">Or click anywhere on the cell.</div>
+      </div>`;
+    } else if(s.key==="dna"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Double helix</span><span class="live"><span class="pip"></span>3.2 B pairs</span></div>
+        <div class="readmini">A<span style="color:var(--muted)">–</span>T · G<span style="color:var(--muted)">–</span>C. Two strands, antiparallel, 2 nm apart. Hover a rung to read it.</div>
+        <div class="chip-row" style="margin-top:12px">
+          <button class="chip" id="spinChip" aria-pressed="true">auto-spin</button>
+          <span class="hint" style="align-self:center">drag the strand to turn it</span>
+        </div>
+      </div>`;
+    } else if(s.key==="atom"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Carbon · ⁶C</span><span class="live"><span class="pip"></span>Z = 6</span></div>
+        <div class="readmini">6 protons · 6 neutrons · 6 electrons. The four outer electrons let carbon bond four ways at once — the reason life could be built on it.</div>
+        <div class="chip-row" style="margin-top:12px">
+          <button class="chip" id="cloudChip" aria-pressed="false">electron cloud</button>
+          <span class="hint" id="atomHint" style="align-self:center">Bohr model shown</span>
+        </div>
+      </div>`;
+    }
+    controlsEl.innerHTML=html;
+    wireControls();
+    updateDerived();
+  }
+
+  function wireControls(){
+    const s=SCENES[state.scene];
+    if(s.key==="wrist"){
+      const view=document.getElementById("bpmView");
+      const setBpm=v=>{ state.bpm=clamp(Math.round(v),48,175); view.innerHTML=`${state.bpm}<small>bpm</small>`; document.getElementById("bpmSlide").value=state.bpm; };
+      document.getElementById("bpmUp").onclick=()=>setBpm(state.bpm+1);
+      document.getElementById("bpmDown").onclick=()=>setBpm(state.bpm-1);
+      document.getElementById("bpmSlide").oninput=e=>setBpm(+e.target.value);
+    } else if(s.key==="heart"){
+      document.getElementById("flowChip").onclick=e=>{ state.heartFlow=!state.heartFlow; e.target.setAttribute("aria-pressed",state.heartFlow); };
+    } else if(s.key==="cell"){
+      controlsEl.querySelectorAll(".chip[data-part]").forEach(c=>c.onclick=()=>{ state.cellPick=c.dataset.part; showCellInfo(); markCellChips(); });
+    } else if(s.key==="neuron"){
+      document.getElementById("fireBtn").onclick=()=>{ state.fireQueue.push(performance.now()/1000 - startT/1000); };
+    } else if(s.key==="dna"){
+      const chip=document.getElementById("spinChip");
+      chip.onclick=()=>{ state.dnaVel = state.dnaVel>0?0:0.35; chip.setAttribute("aria-pressed", state.dnaVel>0); };
+    } else if(s.key==="atom"){
+      const chip=document.getElementById("cloudChip");
+      chip.onclick=()=>{ state.atomCloud=!state.atomCloud; chip.setAttribute("aria-pressed",state.atomCloud);
+        const h=document.getElementById("atomHint"); if(h) h.textContent = state.atomCloud? "electron cloud shown":"Bohr model shown"; };
+    }
+  }
+
+  function showCellInfo(){
+    const p=cellParts.find(z=>z.id===state.cellPick); if(!p) return;
+    const el=document.getElementById("cellInfo"); if(el) el.innerHTML=`<span class="v">${p.name}</span> — ${p.sub}.`;
+    markCellChips();
+  }
+  function markCellChips(){
+    controlsEl.querySelectorAll(".chip[data-part]").forEach(c=>{
+      const on = state.cellPick===c.dataset.part || (c.dataset.part==="mito0" && (state.cellPick||"").startsWith("mito"));
+      c.setAttribute("aria-pressed", on?"true":"false");
+    });
+  }
+
+  function updateDerived(){
+    if(SCENES[state.scene].key!=="heart") return;
+    const co=document.getElementById("co"), bd=document.getElementById("beatsDay");
+    if(co) co.textContent=((state.bpm*70)/1000).toFixed(1)+" L/min";  // ~70ml stroke volume
+    if(bd) bd.textContent=(state.bpm*60*24).toLocaleString()+" beats";
+  }
+  // keep heart readout live
+  setInterval(()=>{ if(state.started) updateDerived(); const lv=controlsEl.querySelector(".p-title .live"); },1000);
+
+  // ---------- rail ----------
+  const railEl=document.getElementById("rail");
+  SCENES.forEach((s,i)=>{
+    const b=document.createElement("button");
+    b.innerHTML=`<span class="r-label">${s.rail}<span class="r-mag">${s.mag}</span></span><span class="r-node"></span>`;
+    b.setAttribute("aria-label",`${s.rail}, ${s.mag}`);
+    b.onclick=()=>goto(i);
+    railEl.appendChild(b);
+  });
+
+  function syncChrome(){
+    const s=SCENES[state.scene];
+    applyAccent(s.accent, s.accentInk);
+    document.getElementById("depth").textContent=`${s.idx} / 06`;
+    document.getElementById("prev").disabled = state.scene===0;
+    document.getElementById("next").disabled = state.scene===SCENES.length-1;
+    railEl.querySelectorAll("button").forEach((b,i)=>b.setAttribute("aria-current", i===state.scene?"true":"false"));
+  }
+
+  function goto(i, fromTour){
+    if(!fromTour && state.touring) stopTour();
+    i=clamp(i,0,SCENES.length-1);
+    if(i===state.scene) return;
+    state.from=state.scene; state.scene=i; state.trans=0;
+    // reset per-scene bits
+    state.cellPick=null;
+    document.getElementById("floatlabel").classList.remove("show");
+    if(SCENES[i].key==="cell"){ buildCell(); }
+    if(SCENES[i].key==="neuron"){ buildNeuron(); state.lastAuto=0; }
+    syncChrome(); renderReadout(); buildControls();
+  }
+
+  // ---------- navigation inputs ----------
+  document.getElementById("next").onclick=()=>goto(state.scene+1);
+  document.getElementById("prev").onclick=()=>goto(state.scene-1);
+  window.addEventListener("keydown",e=>{
+    if(!state.started) return;
+    if(e.key==="ArrowDown"||e.key==="ArrowRight"||e.key==="PageDown"){ e.preventDefault(); goto(state.scene+1); }
+    if(e.key==="ArrowUp"||e.key==="ArrowLeft"||e.key==="PageUp"){ e.preventDefault(); goto(state.scene-1); }
+    if(/^[1-5]$/.test(e.key)){ goto(+e.key-1); }
+    if(e.key===" "&&SCENES[state.scene].key==="neuron"){ e.preventDefault(); state.fireQueue.push(performance.now()/1000-startT/1000); }
+  });
+  let wheelLock=0;
+  window.addEventListener("wheel",e=>{
+    if(!state.started) return;
+    const now=performance.now();
+    if(now-wheelLock<700) return;
+    if(Math.abs(e.deltaY)<18) return;
+    wheelLock=now;
+    goto(state.scene + (e.deltaY>0?1:-1));
+  },{passive:true});
+  // touch swipe
+  let ty=null;
+  window.addEventListener("touchstart",e=>{ ty=e.touches[0].clientY; },{passive:true});
+  window.addEventListener("touchend",e=>{
+    if(ty===null||!state.started) return;
+    const dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dy)>60) goto(state.scene + (dy<0?1:-1));
+    ty=null;
+  },{passive:true});
+
+  // ---------- guided tour ----------
+  let tourTimer=null;
+  function updateTourPill(){
+    const s=SCENES[state.scene];
+    document.getElementById("tpLabel").innerHTML=`Auto-tour · <b>${s.rail}</b> ${s.idx}/06`;
+  }
+  function fireSoon(d){ setTimeout(()=>{ if(state.touring && startT!==null) state.fireQueue.push(performance.now()/1000 - startT/1000); }, d); }
+  function animateBpmTo(target){
+    const startB=state.bpm, t0=performance.now(), dur=2600;
+    (function step(){
+      const p=clamp((performance.now()-t0)/dur,0,1);
+      state.bpm=Math.round(lerp(startB,target,easeOut(p)));
+      const view=document.getElementById("bpmView"); if(view) view.innerHTML=`${state.bpm}<small>bpm</small>`;
+      const sl=document.getElementById("bpmSlide"); if(sl) sl.value=state.bpm;
+      if(p<1 && state.touring) requestAnimationFrame(step);
+    })();
+  }
+  function tourAction(key){
+    if(key==="wrist") animateBpmTo(116);
+    else if(key==="cell"){ state.cellPick="mito0"; showCellInfo(); }
+    else if(key==="neuron"){ fireSoon(200); fireSoon(1500); fireSoon(3000); fireSoon(4600); }
+    else if(key==="dna"){ state.dnaVel=0.5; }
+    else if(key==="atom"){ state.atomCloud=false; }
+  }
+  function tourRun(){
+    const dwell=7000;
+    tourAction(SCENES[state.scene].key);
+    updateTourPill();
+    const fill=document.getElementById("tourfill");
+    fill.style.transition="none"; fill.style.width="0%";
+    void fill.offsetWidth;
+    fill.style.transition=`width ${dwell}ms linear`; fill.style.width="100%";
+    clearTimeout(tourTimer);
+    tourTimer=setTimeout(()=>{
+      if(state.scene < SCENES.length-1){ goto(state.scene+1, true); tourRun(); }
+      else stopTour();
+    }, dwell);
+  }
+  function startTour(){
+    if(!state.started) begin();
+    state.touring=true;
+    setToggleIcon(true);
+    document.getElementById("tourpill").classList.add("show");
+    document.getElementById("tourbar").classList.remove("hidden");
+    if(state.scene!==0) goto(0, true);
+    tourRun();
+  }
+  function stopTour(){
+    if(!state.touring && !tourTimer) return;
+    state.touring=false;
+    clearTimeout(tourTimer); tourTimer=null;
+    setToggleIcon(false);
+    document.getElementById("tourpill").classList.remove("show");
+    document.getElementById("tourbar").classList.add("hidden");
+    const fill=document.getElementById("tourfill"); fill.style.transition="none"; fill.style.width="0%";
+  }
+  function setToggleIcon(playing){
+    const b=document.getElementById("tourToggle");
+    b.innerHTML = playing
+      ? '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>';
+    b.setAttribute("aria-label", playing? "Stop guided tour":"Play guided tour");
+  }
+  document.getElementById("tourToggle").onclick=()=>{ state.touring? stopTour(): startTour(); };
+  document.getElementById("tourStop").onclick=()=>stopTour();
+  document.getElementById("tourBtn").onclick=startTour;
+
+  // ---------- boot ----------
+  function begin(){
+    if(state.started) return;
+    state.started=true;
+    document.getElementById("intro").classList.add("gone");
+    syncChrome(); renderReadout(); buildControls();
+  }
+  document.getElementById("beginBtn").onclick=begin;
+
+  // initialise first scene chrome silently (so it's ready behind intro)
+  syncChrome();
+  rMag.innerHTML=`<span class="idx">01</span><span class="bar"></span>${SCENES[0].mag} · ${SCENES[0].magWord}`;
+  rTitle.textContent=SCENES[0].title; rCap.textContent=SCENES[0].caption;
+  buildControls();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
