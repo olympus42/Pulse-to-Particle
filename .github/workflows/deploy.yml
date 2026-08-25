@@ -30,6 +30,10 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # turn Pages on automatically if it isn't already, so no manual
+          # Settings → Pages toggle is needed for the first deploy
+          enablement: true
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
