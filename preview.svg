@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="'Inter',-apple-system,'Segoe UI',sans-serif">
+  <defs>
+    <radialGradient id="glow" cx="30%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#ff4d6d" stop-opacity="0.16"/>
+      <stop offset="45%" stop-color="#7c8cff" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#06080c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"  stop-color="#ff4d6d"/>
+      <stop offset="17%" stop-color="#ff6a48"/>
+      <stop offset="34%" stop-color="#37e0a6"/>
+      <stop offset="50%" stop-color="#7c8cff"/>
+      <stop offset="67%" stop-color="#ffc24b"/>
+      <stop offset="83%" stop-color="#54d0e6"/>
+      <stop offset="100%" stop-color="#b06cff"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#b9c2d4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#06080c"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- wordmark -->
+  <text x="90" y="150" font-size="26" font-weight="700" letter-spacing="10" fill="#eef2f8">SCALE<tspan fill="#ff4d6d">.</tspan></text>
+
+  <!-- title -->
+  <text x="88" y="290" font-size="120" font-weight="700" letter-spacing="-4" fill="url(#title)">Scale</text>
+
+  <!-- lede -->
+  <text x="90" y="345" font-size="27" fill="#9aa4b5">A descent through the body — from a pulse on your</text>
+  <text x="90" y="382" font-size="27" fill="#9aa4b5">wrist to the <tspan fill="#eef2f8">three quarks</tspan> inside a proton.</text>
+
+  <!-- magnitude span -->
+  <text x="90" y="452" font-size="20" font-family="'JetBrains Mono',monospace" letter-spacing="2" fill="#586072">10⁰ m &#8594; 10⁻¹⁵ m · seven interactive scales · one HTML file</text>
+
+  <!-- the seven-node rail -->
+  <line x1="150" y1="545" x2="1050" y2="545" stroke="url(#rail)" stroke-width="2.5" stroke-opacity="0.55"/>
+  <g font-family="'JetBrains Mono',monospace">
+    <!-- node template: circle + halo + label -->
+    <g>
+      <circle cx="150" cy="545" r="16" fill="#ff4d6d" fill-opacity="0.14"/>
+      <circle cx="150" cy="545" r="8" fill="#ff4d6d"/>
+      <text x="150" y="590" font-size="14" fill="#9aa4b5" text-anchor="middle">Wrist</text>
+      <text x="150" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁰</text>
+    </g>
+    <g>
+      <circle cx="300" cy="545" r="16" fill="#ff6a48" fill-opacity="0.14"/>
+      <circle cx="300" cy="545" r="8" fill="#ff6a48"/>
+      <text x="300" y="590" font-size="14" fill="#9aa4b5" text-anchor="middle">Heart</text>
+      <text x="300" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁻¹</text>
+    </g>
+    <g>
+      <circle cx="450" cy="545" r="16" fill="#37e0a6" fill-opacity="0.14"/>
+      <circle cx="450" cy="545" r="8" fill="#37e0a6"/>
+      <text x="450" y="590" font-size="14" fill="#9aa4b5" text-anchor="middle">Cell</text>
+      <text x="450" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁻⁵</text>
+    </g>
+    <g>
+      <circle cx="600" cy="545" r="16" fill="#7c8cff" fill-opacity="0.14"/>
+      <circle cx="600" cy="545" r="8" fill="#7c8cff"/>
+      <text x="600" y="590" font-size="14" fill="#9aa4b5" text-anchor="middle">Neuron</text>
+      <text x="600" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁻⁷</text>
+    </g>
+    <g>
+      <circle cx="750" cy="545" r="16" fill="#ffc24b" fill-opacity="0.14"/>
+      <circle cx="750" cy="545" r="8" fill="#ffc24b"/>
+      <text x="750" y="590" font-size="14" fill="#9aa4b5" text-anchor="middle">Helix</text>
+      <text x="750" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁻⁹</text>
+    </g>
+    <g>
+      <circle cx="900" cy="545" r="16" fill="#54d0e6" fill-opacity="0.14"/>
+      <circle cx="900" cy="545" r="8" fill="#54d0e6"/>
+      <text x="900" y="590" font-size="14" fill="#9aa4b5" text-anchor="middle">Atom</text>
+      <text x="900" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁻¹⁰</text>
+    </g>
+    <g>
+      <circle cx="1050" cy="545" r="18" fill="#b06cff" fill-opacity="0.18"/>
+      <circle cx="1050" cy="545" r="8" fill="#b06cff"/>
+      <text x="1050" y="590" font-size="14" fill="#eef2f8" text-anchor="middle">Quark</text>
+      <text x="1050" y="609" font-size="11" fill="#586072" text-anchor="middle">10⁻¹⁵</text>
+    </g>
+  </g>
+</svg>

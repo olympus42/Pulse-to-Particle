@@ -2,11 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Scale</title>
+<title>Scale — a descent through the body</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A Powers-of-Ten for the human body: descend from a live pulse on your wrist to the three quarks inside a proton across seven interactive scenes. Zero dependencies, one HTML file.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#06080c">
+<!-- social preview -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Scale — a descent through the body">
+<meta property="og:description" content="From a heartbeat on your wrist to the quarks inside a proton — seven interactive scales, one self-contained HTML file.">
+<meta property="og:image" content="preview.svg">
+<meta name="twitter:card" content="summary_large_image">
+<!-- favicon: a single accent pulse, inline so there is no extra request -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%2306080c'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23ff4d6d'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23ff4d6d' stroke-opacity='0.5' stroke-width='1.5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<!-- fonts load non-blocking; the page is fully usable offline on the system font stack -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
 
 <style>
   :root{
@@ -66,6 +79,23 @@
     color:var(--muted);
   }
   .tagline b{ color:var(--ink); font-weight:500; }
+
+  /* ---------- utility bar (top-right) ---------- */
+  .utilbar{
+    position:absolute; top:20px; right:clamp(16px,3.2vw,44px); z-index:7;
+    display:flex; gap:8px;
+  }
+  .iconbtn{
+    all:unset; cursor:pointer; width:40px; height:40px; border-radius:50%;
+    display:grid; place-items:center; color:var(--muted);
+    background:var(--surface); border:1px solid var(--line);
+    backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); box-shadow:var(--shadow);
+    transition:color .2s ease, border-color .2s ease, background .2s ease;
+  }
+  .iconbtn:hover{ color:var(--ink); border-color:var(--accent); }
+  .iconbtn[aria-pressed="true"]{ color:var(--accent); border-color:var(--accent); }
+  .iconbtn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .iconbtn svg{ width:18px; height:18px; }
 
   /* ---------- depth rail ---------- */
   .rail{
@@ -312,12 +342,21 @@
 </head>
 <body>
 <div id="stage">
-  <canvas id="bio"></canvas>
+  <canvas id="bio" role="img" aria-label="Interactive visualization of the current scale"></canvas>
   <div class="vignette"></div>
 
   <div class="topbar">
     <span class="wordmark">SCALE<span class="dot">.</span></span>
-    <span class="tagline">a descent through the body — <b>wrist to genome</b></span>
+    <span class="tagline">a descent through the body — <b>wrist to quark</b></span>
+  </div>
+
+  <div class="utilbar">
+    <button class="iconbtn" id="soundBtn" aria-pressed="false" aria-label="Turn on heartbeat sound">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none"/>
+        <path d="M22 9l-6 6M16 9l6 6"/>
+      </svg>
+    </button>
   </div>
 
   <div class="tourbar hidden" id="tourbar"><div class="tourbar-fill" id="tourfill"></div></div>
@@ -328,7 +367,7 @@
 
   <nav class="rail" id="rail" aria-label="Depth"></nav>
 
-  <div class="readout">
+  <div class="readout" aria-live="polite" aria-atomic="true">
     <div class="mag fade" id="r-mag"></div>
     <h1 class="fade" id="r-title"></h1>
     <p class="fade" id="r-caption"></p>
@@ -344,7 +383,7 @@
     <button id="prev" aria-label="Ascend (previous scale)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
     </button>
-    <span class="depth" id="depth">01 / 06</span>
+    <span class="depth" id="depth">01 / 07</span>
     <button id="next" aria-label="Descend (next scale)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
     </button>
@@ -356,12 +395,12 @@
     <div class="intro-inner">
       <div class="eyebrow">Applied biology · interactive</div>
       <h2>Scale</h2>
-      <p class="lede">Your heartbeat begins on your <b>wrist</b>. Follow it down — through the heart, into a living cell, across a firing neuron, to the <b>two-nanometre helix</b> that wrote you, and the <b>carbon atoms</b> — forged in stars — beneath even that.</p>
+      <p class="lede">Your heartbeat begins on your <b>wrist</b>. Follow it down — through the heart, into a living cell, across a firing neuron, to the <b>two-nanometre helix</b> that wrote you, the <b>carbon atoms</b> forged in stars, and the <b>three quarks</b> no force will ever let you hold.</p>
       <div class="intro-cta">
         <button class="begin" id="beginBtn">Begin the descent <span class="arw">↓</span></button>
         <button class="begin ghost" id="tourBtn"><span class="ptri"></span> Play the tour</button>
       </div>
-      <div class="credits">six scales · 10⁰ m → 10⁻¹⁰ m · built for the curious</div>
+      <div class="credits">seven scales · 10⁰ m → 10⁻¹⁵ m · built for the curious</div>
       <div class="madeon">Proudly built on Apple's MacBook Air</div>
     </div>
   </div>
@@ -388,8 +427,59 @@
     dnaVel: 0.35,
     dragDNA: false,
     atomCloud: false,
+    quarkColor: false,
     touring: false,
   };
+
+  // ---------- audio + haptics (opt-in, autoplay-safe) ----------
+  const audio = { ctx:null, on:false };
+  function ensureAudio(){
+    if(!audio.ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return;
+      try{ audio.ctx = new AC(); }catch(e){ return; }
+    }
+    if(audio.ctx.state === "suspended") audio.ctx.resume();
+  }
+  // a soft low thump — one voice of the "lub-dub"
+  function thump(t, freq, gain){
+    if(!audio.ctx) return;
+    const o=audio.ctx.createOscillator(), g=audio.ctx.createGain();
+    o.type="sine";
+    o.frequency.setValueAtTime(freq*1.7, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t+0.08);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.24);
+    o.connect(g).connect(audio.ctx.destination);
+    o.start(t); o.stop(t+0.3);
+  }
+  function heartSound(){
+    if(!audio.on || !audio.ctx) return;
+    const t=audio.ctx.currentTime;
+    thump(t, 56, 0.16);          // lub
+    thump(t+0.14, 42, 0.10);     // dub
+  }
+  function zap(){
+    if(!audio.on || !audio.ctx) return;
+    const t=audio.ctx.currentTime;
+    const o=audio.ctx.createOscillator(), g=audio.ctx.createGain();
+    o.type="sawtooth";
+    o.frequency.setValueAtTime(880, t);
+    o.frequency.exponentialRampToValueAtTime(170, t+0.18);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.10, t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.2);
+    o.connect(g).connect(audio.ctx.destination);
+    o.start(t); o.stop(t+0.22);
+  }
+  // single entry point for firing a neuron: visuals + optional sound/haptic
+  function fireNeuron(){
+    if(startT===null) return;
+    state.fireQueue.push(performance.now()/1000 - startT/1000);
+    if(audio.on){ zap(); if(navigator.vibrate) navigator.vibrate(15); }
+  }
+  let lastBeatPhase = 0;
 
   // ---------- scene definitions ----------
   const SCENES = [
@@ -429,6 +519,12 @@
       title:"And beneath it all — carbon",
       caption:"Every rung of that helix is built from atoms: mostly carbon, six protons at its core, four bonds reaching outward. These were forged inside dying stars. You are, quite literally, made of starlight."
     },
+    {
+      key:"quark", idx:"07", mag:"10⁻¹⁵ m", magWord:"one femtometre",
+      accent:"#b06cff", accentInk:"#e9dcff", rail:"The Quark",
+      title:"The cage you can't escape",
+      caption:"Inside every proton, three quarks — two up, one down — tremble in a prison they can never leave. The strong force binds them so fiercely that almost all your mass isn't matter at all, but the raw energy of that binding."
+    },
   ];
 
   // ---------- canvas setup ----------
@@ -446,11 +542,14 @@
     cx = W / 2; cy = H / 2;
   }
   window.addEventListener("resize", resize);
+  // rebuild position-dependent geometry after the canvas re-measures
+  window.addEventListener("resize", ()=>{ cellParts=[]; neuron=null; });
   resize();
 
   // ---------- helpers ----------
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp = (a,b,t)=>a+(b-a)*t;
+  const pad2 = n=>String(n).padStart(2,"0");
   const easeInOut = t => t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
   const easeOut = t => 1-Math.pow(1-t,3);
   function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
@@ -1022,6 +1121,72 @@
     }
   }
 
+  // ============================================================
+  //  SCENE 7 — THE QUARK (proton: uud + gluon flux tubes)
+  // ============================================================
+  const quarks=[
+    {label:"u", charge:"+⅔", base:[0,-1]},
+    {label:"u", charge:"+⅔", base:[0.87,0.5]},
+    {label:"d", charge:"−⅓", base:[-0.87,0.5]},
+  ];
+  const quarkCols=["#ff5470","#37e0a6","#5a8bff"]; // colour-charge: red / green / blue
+  function drawGluon(a,b,time,accent){
+    const segs=28, dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
+    const nx=-dy/len, ny=dx/len;
+    ctx.beginPath();
+    for(let s=0;s<=segs;s++){
+      const t=s/segs;
+      const wob=Math.sin(t*Math.PI*6 - time*6)*10*Math.sin(t*Math.PI);
+      const x=a.x+dx*t+nx*wob, y=a.y+dy*t+ny*wob;
+      s===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=rgba(accent,0.32); ctx.lineWidth=1.6; ctx.lineCap="round"; ctx.stroke();
+  }
+  function drawQuark(time, accent){
+    const beat=contraction(beatPhase(time));
+    const S=clamp(Math.min(W,H)*0.26,140,300);
+    const jit=S*0.045*(1+beat*0.6);   // quantum jitter, breathing with the beat
+
+    // confinement "bag": glow + a breathing dashed boundary
+    glowDot(cx,cy,S*1.5,accent,0.10+beat*0.08);
+    ctx.beginPath();
+    for(let a=0;a<=6.283;a+=0.1){
+      const wob=1+0.03*Math.sin(a*6+time*1.2);
+      const x=cx+Math.cos(a)*S*wob, y=cy+Math.sin(a)*S*wob;
+      a===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.closePath();
+    ctx.setLineDash([2,7]); ctx.lineWidth=1.4; ctx.strokeStyle=rgba(accent,0.4); ctx.stroke(); ctx.setLineDash([]);
+
+    // quark positions with per-quark quantum jitter
+    const pos=quarks.map((q,i)=>{
+      const jx=Math.sin(time*(2.1+i*0.7)+i)*jit + Math.cos(time*(1.3+i))*jit*0.4;
+      const jy=Math.cos(time*(1.7+i*0.9)+i*2)*jit + Math.sin(time*(2.4+i))*jit*0.4;
+      return { x:cx+q.base[0]*S*0.42+jx, y:cy+q.base[1]*S*0.42+jy };
+    });
+
+    // gluon flux tubes between every pair
+    for(let i=0;i<3;i++) for(let j=i+1;j<3;j++) drawGluon(pos[i],pos[j],time,accent);
+
+    // the three quarks
+    quarks.forEach((q,i)=>{
+      const col=state.quarkColor? quarkCols[i] : accent;
+      const r=S*0.11;
+      glowDot(pos[i].x,pos[i].y,S*0.28,col,0.7);
+      const g=ctx.createRadialGradient(pos[i].x-r*0.3,pos[i].y-r*0.3,0,pos[i].x,pos[i].y,r);
+      g.addColorStop(0,rgba("#ffffff",0.92)); g.addColorStop(1,rgba(col,0.95));
+      ctx.beginPath(); ctx.arc(pos[i].x,pos[i].y,r,0,6.283); ctx.fillStyle=g; ctx.fill();
+      // flavour label
+      ctx.textAlign="center"; ctx.fillStyle="#07090d";
+      ctx.font=`700 ${r*0.95}px "SF Pro Display","Inter",-apple-system,sans-serif`;
+      ctx.fillText(q.label, pos[i].x, pos[i].y+r*0.34);
+      // charge tag above
+      ctx.fillStyle=rgba(accent,0.9);
+      ctx.font=`600 ${r*0.52}px "JetBrains Mono",monospace`;
+      ctx.fillText(q.charge, pos[i].x, pos[i].y - r*1.35);
+    });
+  }
+
   // ---------- shared shapes ----------
   function roundRect(x,y,w,h,r){
     r=Math.min(r,w/2,h/2);
@@ -1034,13 +1199,22 @@
     ctx.closePath();
   }
 
-  const RENDER=[drawWrist,drawHeart,drawCell,drawNeuron,drawDNA,drawAtom];
+  const RENDER=[drawWrist,drawHeart,drawCell,drawNeuron,drawDNA,drawAtom,drawQuark];
 
   // ---------- main loop ----------
   let startT=null;
   function frame(ts){
+    requestAnimationFrame(frame);              // keep the loop alive even if we skip a frame
     if(startT===null) startT=ts;
+    if(document.hidden) return;                // don't burn CPU/battery on a hidden tab
     const time=(ts-startT)/1000;
+
+    // heartbeat onset detection → sound (phase wraps from ~1 back to ~0 each beat)
+    if(state.started){
+      const ph=beatPhase(time);
+      if(ph < lastBeatPhase) heartSound();
+      lastBeatPhase=ph;
+    }
 
     // transition progress
     if(state.trans<1){ state.trans=clamp(state.trans + 0.020, 0, 1); }
@@ -1064,7 +1238,6 @@
       drawBackdrop(time, accTo);
       RENDER[state.scene](time, accTo);
     }
-    requestAnimationFrame(frame);
   }
   function mixHex(h1,h2,t){ const a=hexToRgb(h1),b=hexToRgb(h2);
     return `rgb(${Math.round(lerp(a[0],b[0],t))},${Math.round(lerp(a[1],b[1],t))},${Math.round(lerp(a[2],b[2],t))})`; }
@@ -1082,7 +1255,7 @@
       state.cellPick = hit? hit.id : (Math.hypot(e.clientX-cx,e.clientY-cy)<cellParts[0].r? "membrane": state.cellPick);
       if(hit || Math.hypot(e.clientX-cx,e.clientY-cy)<cellParts[0].r) showCellInfo();
     }
-    else if(state.scene===3){ state.fireQueue.push(performance.now()/1000 - startT/1000); }
+    else if(state.scene===3){ fireNeuron(); }
   });
   window.addEventListener("pointerup",()=>{ state.dragDNA=false; });
 
@@ -1165,6 +1338,15 @@
           <span class="hint" id="atomHint" style="align-self:center">Bohr model shown</span>
         </div>
       </div>`;
+    } else if(s.key==="quark"){
+      html=`<div class="panel">
+        <div class="p-title"><span>Proton · uud</span><span class="live"><span class="pip"></span>charge +1</span></div>
+        <div class="readmini">Two up quarks (+⅔) and one down (−⅓) sum to exactly +1. Their rest mass is almost nothing — the rest is pure binding energy, <span class="v">E = mc²</span> made flesh.</div>
+        <div class="chip-row" style="margin-top:12px">
+          <button class="chip" id="colorChip" aria-pressed="false">colour charge</button>
+          <span class="hint" id="quarkHint" style="align-self:center">strong-force glue shown</span>
+        </div>
+      </div>`;
     }
     controlsEl.innerHTML=html;
     wireControls();
@@ -1184,7 +1366,7 @@
     } else if(s.key==="cell"){
       controlsEl.querySelectorAll(".chip[data-part]").forEach(c=>c.onclick=()=>{ state.cellPick=c.dataset.part; showCellInfo(); markCellChips(); });
     } else if(s.key==="neuron"){
-      document.getElementById("fireBtn").onclick=()=>{ state.fireQueue.push(performance.now()/1000 - startT/1000); };
+      document.getElementById("fireBtn").onclick=()=>{ fireNeuron(); };
     } else if(s.key==="dna"){
       const chip=document.getElementById("spinChip");
       chip.onclick=()=>{ state.dnaVel = state.dnaVel>0?0:0.35; chip.setAttribute("aria-pressed", state.dnaVel>0); };
@@ -1192,6 +1374,10 @@
       const chip=document.getElementById("cloudChip");
       chip.onclick=()=>{ state.atomCloud=!state.atomCloud; chip.setAttribute("aria-pressed",state.atomCloud);
         const h=document.getElementById("atomHint"); if(h) h.textContent = state.atomCloud? "electron cloud shown":"Bohr model shown"; };
+    } else if(s.key==="quark"){
+      const chip=document.getElementById("colorChip");
+      chip.onclick=()=>{ state.quarkColor=!state.quarkColor; chip.setAttribute("aria-pressed",state.quarkColor);
+        const h=document.getElementById("quarkHint"); if(h) h.textContent = state.quarkColor? "red · green · blue = colourless":"strong-force glue shown"; };
     }
   }
 
@@ -1229,10 +1415,11 @@
   function syncChrome(){
     const s=SCENES[state.scene];
     applyAccent(s.accent, s.accentInk);
-    document.getElementById("depth").textContent=`${s.idx} / 06`;
+    document.getElementById("depth").textContent=`${s.idx} / ${pad2(SCENES.length)}`;
     document.getElementById("prev").disabled = state.scene===0;
     document.getElementById("next").disabled = state.scene===SCENES.length-1;
     railEl.querySelectorAll("button").forEach((b,i)=>b.setAttribute("aria-current", i===state.scene?"true":"false"));
+    canvas.setAttribute("aria-label", `Scale ${s.idx} of ${pad2(SCENES.length)}: ${s.rail} — ${s.title}, at ${s.mag}`);
   }
 
   function goto(i, fromTour){
@@ -1255,8 +1442,8 @@
     if(!state.started) return;
     if(e.key==="ArrowDown"||e.key==="ArrowRight"||e.key==="PageDown"){ e.preventDefault(); goto(state.scene+1); }
     if(e.key==="ArrowUp"||e.key==="ArrowLeft"||e.key==="PageUp"){ e.preventDefault(); goto(state.scene-1); }
-    if(/^[1-5]$/.test(e.key)){ goto(+e.key-1); }
-    if(e.key===" "&&SCENES[state.scene].key==="neuron"){ e.preventDefault(); state.fireQueue.push(performance.now()/1000-startT/1000); }
+    if(/^[1-9]$/.test(e.key)){ const i=+e.key-1; if(i<SCENES.length){ e.preventDefault(); goto(i); } }
+    if(e.key===" "&&SCENES[state.scene].key==="neuron"){ e.preventDefault(); fireNeuron(); }
   });
   let wheelLock=0;
   window.addEventListener("wheel",e=>{
@@ -1281,9 +1468,9 @@
   let tourTimer=null;
   function updateTourPill(){
     const s=SCENES[state.scene];
-    document.getElementById("tpLabel").innerHTML=`Auto-tour · <b>${s.rail}</b> ${s.idx}/06`;
+    document.getElementById("tpLabel").innerHTML=`Auto-tour · <b>${s.rail}</b> ${s.idx}/${pad2(SCENES.length)}`;
   }
-  function fireSoon(d){ setTimeout(()=>{ if(state.touring && startT!==null) state.fireQueue.push(performance.now()/1000 - startT/1000); }, d); }
+  function fireSoon(d){ setTimeout(()=>{ if(state.touring && startT!==null) fireNeuron(); }, d); }
   function animateBpmTo(target){
     const startB=state.bpm, t0=performance.now(), dur=2600;
     (function step(){
@@ -1300,6 +1487,7 @@
     else if(key==="neuron"){ fireSoon(200); fireSoon(1500); fireSoon(3000); fireSoon(4600); }
     else if(key==="dna"){ state.dnaVel=0.5; }
     else if(key==="atom"){ state.atomCloud=false; }
+    else if(key==="quark"){ state.quarkColor=true; }
   }
   function tourRun(){
     const dwell=7000;
@@ -1343,6 +1531,18 @@
   document.getElementById("tourToggle").onclick=()=>{ state.touring? stopTour(): startTour(); };
   document.getElementById("tourStop").onclick=()=>stopTour();
   document.getElementById("tourBtn").onclick=startTour;
+
+  // ---------- sound toggle ----------
+  const SND_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none"/><path d="M22 9l-6 6M16 9l6 6"/></svg>';
+  const SND_ON ='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none"/><path d="M16 8a5 5 0 0 1 0 8M19 5a9 9 0 0 1 0 14"/></svg>';
+  const soundBtn=document.getElementById("soundBtn");
+  soundBtn.onclick=()=>{
+    audio.on=!audio.on;
+    if(audio.on){ ensureAudio(); heartSound(); }  // instant confirmation on the enabling gesture
+    soundBtn.setAttribute("aria-pressed", audio.on?"true":"false");
+    soundBtn.setAttribute("aria-label", audio.on? "Turn off heartbeat sound":"Turn on heartbeat sound");
+    soundBtn.innerHTML = audio.on? SND_ON : SND_OFF;
+  };
 
   // ---------- boot ----------
   function begin(){

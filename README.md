@@ -1,10 +1,10 @@
 # Scale 🧬
 
-> An interactive descent through the human body — from a live pulse on your wrist all the way down to a single carbon atom forged in a star.
+> An interactive descent through the human body — from a live pulse on your wrist all the way down to the three quarks trembling inside a single proton.
 
-**[▶ Live demo](https://<your-username>.github.io/pulse-to-particle)** · Built with zero dependencies · One HTML file
+**[▶ Live demo](https://olympus42.github.io/pulse-to-particle)** · Built with zero dependencies · One HTML file
 
-![Scale walkthrough](scale_walkthrough.gif)
+![Scale — seven interactive scales, wrist to quark](preview.svg)
 
 ---
 
@@ -12,11 +12,11 @@
 
 Biology happens across an absurd range of scales. Your heartbeat is something you can feel on your wrist — and the very same rhythm reaches all the way down to the mitochondria burning oxygen inside a single cell, and to the atoms those cells are built from.
 
-**Scale** is a "Powers of Ten" for the human body. You start on an Apple Watch reading a live heartbeat, then descend through six orders of magnitude — heart, cell, neuron, DNA, atom — each one a fully animated, interactive scene. The beat you set at the top propagates all the way down: set your pulse on the wrist and the cell, the helix, and even the atomic nucleus pulse in time with it.
+**Scale** is a "Powers of Ten" for the human body. You start on an Apple Watch reading a live heartbeat, then descend through fifteen orders of magnitude — heart, cell, neuron, DNA, atom, quark — each one a fully animated, interactive scene. The beat you set at the top propagates all the way down: set your pulse on the wrist and the cell, the helix, and even the atomic nucleus pulse in time with it. Turn on sound and you can *hear* it too.
 
 It's meant to sit at the intersection I care about: **applied biology, physics, and Apple-grade design.**
 
-## The six scales
+## The seven scales
 
 | # | Scene | Scale | Field |
 |---|-------|-------|-------|
@@ -26,6 +26,7 @@ It's meant to sit at the intersection I care about: **applied biology, physics, 
 | 04 | **The Neuron** | 10⁻⁷ m · the synapse | neuroscience |
 | 05 | **The Helix** | 10⁻⁹ m · two nanometres | genomics |
 | 06 | **The Atom** | 10⁻¹⁰ m · one ångström | chemistry / physics |
+| 07 | **The Quark** | 10⁻¹⁵ m · one femtometre | particle physics |
 
 ## What you can do
 
@@ -34,20 +35,23 @@ It's meant to sit at the intersection I care about: **applied biology, physics, 
 - **Fire a neuron** — trigger an all-or-nothing action potential and watch the −70 mV → +40 mV spike sprint down the axon to the synapse, plotted on a live membrane-potential graph.
 - **Turn the double helix** — drag to rotate the DNA, hover a rung to read its base pair (A–T / G–C).
 - **Meet carbon** — orbiting electrons around a six-proton nucleus, with a toggle between the classic Bohr model and a probabilistic electron cloud.
-- **Take the guided tour** — one button auto-flies through all six scales, performing each scene's key interaction, with a progress bar you can stop anytime.
+- **Descend into a proton** — three quarks (two up, one down) held in permanent confinement by wobbling gluon flux tubes; toggle **colour charge** to see the red/green/blue that must always sum to colourless.
+- **Turn on the heartbeat** — an optional, subtle "lub-dub" synced to the beat (with haptic feedback on a neuron fire), off by default.
+- **Take the guided tour** — one button auto-flies through all seven scales, performing each scene's key interaction, with a progress bar you can stop anytime.
 
-Navigate with the on-screen depth rail, the ↑ / ↓ arrow keys, scroll, swipe, or number keys `1`–`6`.
+Navigate with the on-screen depth rail, the ↑ / ↓ arrow keys, scroll, swipe, or number keys `1`–`7`.
 
 ## Built with
 
-No frameworks. No build step. No dependencies. **One self-contained HTML file (~60 KB).**
+No frameworks. No build step. No dependencies. **One self-contained HTML file.**
 
-- **Vanilla JavaScript** — ~1,000 lines, no libraries
-- **Canvas 2D** — every organ, cell, neuron, helix, and atom is drawn procedurally in real time with `requestAnimationFrame`
-- **CSS custom properties** — a single `--accent` token recolors the entire interface as you descend, shifting smoothly from cardiac red through cellular green to electric indigo, gold, and atomic cyan
+- **Vanilla JavaScript** — no libraries
+- **Canvas 2D** — every organ, cell, neuron, helix, atom, and quark is drawn procedurally in real time with `requestAnimationFrame` (and it pauses itself when the tab is hidden)
+- **Web Audio** — the optional heartbeat is synthesised on the fly, no audio files
+- **CSS custom properties** — a single `--accent` token recolors the entire interface as you descend, shifting smoothly from cardiac red through cellular green to electric indigo, gold, atomic cyan, and finally quark violet
 - **Type** — Apple's `-apple-system` stack (real SF Pro on Apple devices), with **Inter** as the web fallback and **JetBrains Mono** for the scientific readouts
 
-The whole thing respects `prefers-reduced-motion` and is keyboard-navigable.
+The whole thing respects `prefers-reduced-motion`, is keyboard-navigable, and announces each scale to screen readers.
 
 ## Run it locally
 
@@ -55,7 +59,7 @@ No tooling required — it's a single static file.
 
 ```bash
 # clone
-git clone https://github.com/<your-username>/pulse-to-particle.git
+git clone https://github.com/olympus42/pulse-to-particle.git
 cd pulse-to-particle
 
 # open it directly...
@@ -70,15 +74,15 @@ python3 -m http.server 8000
 
 Because it's one static file, it hosts anywhere:
 
-- **GitHub Pages** — Settings → Pages → deploy from `main`. Lands at `https://<your-username>.github.io/pulse-to-particle`.
+- **GitHub Pages** — this repo ships a workflow at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) that publishes `index.html` on every push to `main`. Just enable **Settings → Pages → Source: GitHub Actions**, and it lands at `https://olympus42.github.io/pulse-to-particle`.
 - **Netlify Drop** — drag `index.html` onto [app.netlify.com/drop](https://app.netlify.com/drop) for an instant URL.
 - **Vercel / Cloudflare Pages** — import the repo, no config needed.
 
-> Note: fonts are loaded from Google Fonts, so the page needs an internet connection to render exactly as designed.
+> Fonts are loaded non-blocking from Google Fonts, so the page renders instantly and works fully offline — it simply falls back to the system font stack (SF Pro / Segoe UI / system-ui) when there's no connection.
 
 ## A note on the science
 
-The physiology and molecular biology here are accurate but **stylized** — this is procedural art in service of intuition, not a rendered simulation. The ECG waveform, the −70/+40 mV action potential, the A–T / G–C base pairing, and carbon's 2-4 electron configuration are all faithful to the real thing. The carbon atom in particular uses the iconic **Bohr model**; the "electron cloud" toggle is there to acknowledge that real electrons live in probability clouds, not neat orbits.
+The physiology, molecular biology, and physics here are accurate but **stylized** — this is procedural art in service of intuition, not a rendered simulation. The ECG waveform, the −70/+40 mV action potential, the A–T / G–C base pairing, carbon's 2-4 electron configuration, and the proton's `uud` quark content (charges +⅔, +⅔, −⅓, summing to +1) are all faithful to the real thing. The carbon atom uses the iconic **Bohr model**; the "electron cloud" toggle acknowledges that real electrons live in probability clouds, not neat orbits. And the quark scene's headline fact is true: the three quarks' rest mass is a tiny fraction of the proton's — almost all of your mass is the binding energy of the strong force.
 
 ## About
 
@@ -91,4 +95,4 @@ Typeset in SF Pro · Inter · JetBrains Mono.
 
 ## License
 
-MIT © <Your Name>
+MIT © olympus42
